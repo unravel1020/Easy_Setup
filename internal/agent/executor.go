@@ -127,7 +127,7 @@ func ReadJob(jobDir string, id string) (*Job, error) {
 		return nil, err
 	}
 	var job Job
-	if err := json.Unmarshal(data, &job); err != nil {
+	if err := json.Unmarshal(trimUTF8BOM(data), &job); err != nil {
 		return nil, err
 	}
 	return &job, nil
@@ -152,13 +152,34 @@ func ListJobs(jobDir string) ([]Job, error) {
 			return nil, err
 		}
 		var job Job
-		if err := json.Unmarshal(data, &job); err != nil {
+		if err := json.Unmarshal(trimUTF8BOM(data), &job); err != nil {
 			return nil, err
 		}
 		jobs = append(jobs, job)
 	}
 	sortJobs(jobs)
 	return jobs, nil
+}
+
+func ReadJobLog(jobDir string, id string, maxBytes int64) (string, error) {
+	job, err := ReadJob(jobDir, id)
+	if err != nil {
+		return "", err
+	}
+	if maxBytes <= 0 {
+		maxBytes = 32 * 1024
+	}
+	data, err := os.ReadFile(job.LogPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	if int64(len(data)) > maxBytes {
+		data = data[int64(len(data))-maxBytes:]
+	}
+	return string(data), nil
 }
 
 func sortJobs(jobs []Job) {
@@ -188,4 +209,11 @@ func newJobID() (string, error) {
 
 func escapePowerShellString(value string) string {
 	return strings.ReplaceAll(value, `"`, "`\"")
+}
+
+func trimUTF8BOM(data []byte) []byte {
+	if len(data) >= 3 && data[0] == 0xef && data[1] == 0xbb && data[2] == 0xbf {
+		return data[3:]
+	}
+	return data
 }

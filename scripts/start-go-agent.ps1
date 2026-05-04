@@ -1,6 +1,7 @@
 param(
   [switch]$AllowExecute,
-  [int]$Port = 17772
+  [int]$Port = 17772,
+  [string]$JobDir = ".easy-setup/logs"
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,7 +18,7 @@ if (Test-Path -LiteralPath $LocalGo) {
   $env:Path = "$LocalGo\bin;$LocalGoPath\bin;$env:Path"
 }
 
-$argsList = @("run", "./cmd/easysetup-agent", "-port", "$Port")
+$argsList = @("run", "./cmd/easysetup-agent", "-port", "$Port", "-job-dir", $JobDir)
 if ($AllowExecute) {
   $argsList += "-allow-execute"
 }
@@ -28,4 +29,3 @@ try {
 } finally {
   Pop-Location
 }
-

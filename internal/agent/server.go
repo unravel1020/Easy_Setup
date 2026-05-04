@@ -146,6 +146,10 @@ func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := strings.TrimPrefix(r.URL.Path, "/jobs/")
+	if strings.HasSuffix(id, "/log") {
+		s.handleJobLog(w, r, strings.TrimSuffix(id, "/log"))
+		return
+	}
 	if id == "" || strings.Contains(id, "/") {
 		writeError(w, http.StatusNotFound, "job not found")
 		return
@@ -160,6 +164,26 @@ func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, job)
+}
+
+func (s *Server) handleJobLog(w http.ResponseWriter, r *http.Request, id string) {
+	if id == "" || strings.Contains(id, "/") {
+		writeError(w, http.StatusNotFound, "job not found")
+		return
+	}
+	logText, err := ReadJobLog(s.JobDir, id, 32*1024)
+	if err != nil {
+		if errors.Is(err, ErrJobNotFound) {
+			writeError(w, http.StatusNotFound, "job not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id":  id,
+		"log": logText,
+	})
 }
 
 func cors(next http.Handler) http.Handler {

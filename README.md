@@ -98,7 +98,7 @@ go run ./cmd/easysetup plan template.fullstack-web
 go run ./cmd/easysetup-agent -port 17772
 ```
 
-Go Agent 当前支持 `/health`、`/catalog`、`/plan`、`/execute`、`/jobs` 和 `/jobs/{id}`。
+Go Agent 当前支持 `/health`、`/catalog`、`/plan`、`/execute`、`/jobs`、`/jobs/{id}` 和 `/jobs/{id}/log`。
 
 ## 内容配置
 

@@ -128,6 +128,7 @@ $appJs = Get-Content -Raw -LiteralPath $appPath
 $stylesCss = Get-Content -Raw -LiteralPath $stylePath
 $webCatalog = Get-Content -Raw -LiteralPath $webCatalogPath | ConvertFrom-Json
 $agentPs1 = Get-Content -Raw -LiteralPath $agentPath
+$goAgentStartPs1 = Get-Content -Raw -LiteralPath $goAgentStartPath
 Assert-True ($indexHtml.Contains("./app.js")) "static GUI references app.js"
 Assert-True ($indexHtml.Contains("./styles.css")) "static GUI references styles.css"
 Assert-True ($appJs.Contains("catalog.web.json")) "static GUI loads configurable web catalog"
@@ -185,14 +186,18 @@ Assert-True ($indexHtml.Contains("id=""jobs""")) "static GUI exposes job history
 Assert-True ($appJs.Contains("refreshAgentStatus")) "static GUI checks local Agent health"
 Assert-True ($appJs.Contains("refreshJobs")) "static GUI checks local Agent jobs"
 Assert-True ($appJs.Contains("/jobs")) "static GUI calls Agent jobs endpoint"
+Assert-True ($appJs.Contains("/log")) "static GUI calls Agent job log endpoint"
+Assert-True ($appJs.Contains("toggleJobLog")) "static GUI toggles job log preview"
 Assert-True ($appJs.Contains("executeViaAgent")) "static GUI can execute through local Agent"
 Assert-True ($stylesCss.Contains(".agent-status")) "static GUI styles local Agent status"
 Assert-True ($stylesCss.Contains(".job")) "static GUI styles job history"
+Assert-True ($stylesCss.Contains(".job-log")) "static GUI styles job log preview"
 Assert-True ($agentPs1.Contains("/health")) "local Agent exposes health endpoint"
 Assert-True ($agentPs1.Contains("/execute")) "local Agent exposes execute endpoint"
 Assert-True ($agentPs1.Contains("AllowExecute")) "local Agent requires explicit execution opt-in"
 Assert-True ($agentPs1.Contains("Start-Process")) "local Agent opens a visible execution window"
 Assert-True ($agentPs1.Contains("src/catalog/catalog.json")) "local Agent reads the shared catalog"
+Assert-True ($goAgentStartPs1.Contains("-job-dir")) "Go Agent start script forwards job directory"
 
 $pagesWorkflow = Join-Path $Root ".github/workflows/pages.yml"
 $pagesDoc = Join-Path $Root "docs/GITHUB_PAGES.md"

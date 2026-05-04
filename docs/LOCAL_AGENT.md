@@ -31,6 +31,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1 -AllowExecute
 ```
 
+如需指定 job 目录：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1 -JobDir .easy-setup/logs
+```
+
 监听地址：
 
 ```text
@@ -49,6 +55,7 @@ POST /plan
 POST /execute
 GET  /jobs
 GET  /jobs/{id}
+GET  /jobs/{id}/log
 ```
 
 `POST /execute` 必须启用执行参数。PowerShell Agent 使用 `-AllowExecute`，Go Agent 使用 `-allow-execute`。否则接口会返回安全拒绝。
@@ -62,6 +69,8 @@ Go Agent 会在执行时创建 job 记录：
 ```
 
 `GET /jobs` 返回当前 job 目录中的历史记录，按创建时间倒序排列。`GET /jobs/{id}` 返回单个 job 的脚本路径、日志路径、状态、环境选择和展开后的 actions。
+
+`GET /jobs/{id}/log` 返回该 job 日志文件的尾部内容。当前上限为 32 KB，后续会演进为实时日志流。
 
 ## 目录来源
 
