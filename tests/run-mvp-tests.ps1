@@ -46,7 +46,7 @@ function Invoke-CliText([string[]]$ArgsList) {
 Write-Host "Running EnvForge MVP tests..." -ForegroundColor Cyan
 
 $catalog = Invoke-CliJson @("catalog")
-Assert-True ($catalog.version -eq "0.1.0") "catalog exposes expected version"
+Assert-True ($catalog.version -eq "0.2.0") "catalog exposes expected version"
 $catalogRecipes = @($catalog.recipes)
 $catalogStacks = @($catalog.stacks)
 Assert-True (@($catalogRecipes | Where-Object { $_.id -eq "python" }).Count -eq 1) "catalog contains Python recipe"
@@ -55,12 +55,19 @@ Assert-True (@($catalogRecipes | Where-Object { $_.id -eq "ai.transformers" }).C
 Assert-True (@($catalogRecipes | Where-Object { $_.id -eq "ai.langchain" }).Count -eq 1) "catalog contains LangChain recipe"
 Assert-True (@($catalogRecipes | Where-Object { $_.id -eq "testing.playwright" }).Count -eq 1) "catalog contains Playwright recipe"
 Assert-True (@($catalogRecipes | Where-Object { $_.id -eq "testing.pytest" }).Count -eq 1) "catalog contains pytest recipe"
+Assert-True (@($catalogRecipes | Where-Object { $_.id -eq "frontend.vue" }).Count -eq 1) "catalog contains Vue recipe"
+Assert-True (@($catalogRecipes | Where-Object { $_.id -eq "frontend.electron" }).Count -eq 1) "catalog contains Electron recipe"
+Assert-True (@($catalogRecipes | Where-Object { $_.id -eq "backend.spring" }).Count -eq 1) "catalog contains Spring recipe"
+Assert-True (@($catalogRecipes | Where-Object { $_.id -eq "backend.gin" }).Count -eq 1) "catalog contains Go Gin recipe"
+Assert-True (@($catalogRecipes | Where-Object { $_.id -eq "backend.axum" }).Count -eq 1) "catalog contains Rust Axum recipe"
 Assert-True (@($catalogRecipes | Where-Object { $_.id -eq "kubernetes.kubectl" }).Count -eq 1) "catalog contains kubectl recipe"
 Assert-True (@($catalogRecipes | Where-Object { $_.id -eq "terraform" }).Count -eq 1) "catalog contains Terraform recipe"
 Assert-True (@($catalogStacks | Where-Object { $_.id -eq "template.ai-python-workstation" }).Count -eq 1) "catalog contains AI workstation template"
 Assert-True (@($catalogStacks | Where-Object { $_.id -eq "template.fullstack-web" }).Count -eq 1) "catalog contains fullstack web template"
 Assert-True (@($catalogStacks | Where-Object { $_.id -eq "testing.web" }).Count -eq 1) "catalog contains web testing stack"
 Assert-True (@($catalogStacks | Where-Object { $_.id -eq "operations.kubernetes" }).Count -eq 1) "catalog contains Kubernetes ops stack"
+Assert-True (@($catalogStacks | Where-Object { $_.id -eq "harness.delivery" }).Count -eq 1) "catalog contains Harness delivery stack"
+Assert-True (@($catalogStacks | Where-Object { $_.id -eq "virtualization.vm" }).Count -eq 1) "catalog contains virtualization stack"
 
 $detect = Invoke-CliJson @("detect")
 Assert-True ([string]::IsNullOrWhiteSpace($detect.os) -eq $false) "detect returns OS description"
@@ -99,7 +106,7 @@ $indexPath = Join-Path $Root "mvp/web/index.html"
 $appPath = Join-Path $Root "mvp/web/app.js"
 $stylePath = Join-Path $Root "mvp/web/styles.css"
 $agentPath = Join-Path $Root "src/agent/EasySetupAgent.ps1"
-$agentCatalogPath = Join-Path $Root "src/agent/catalog.agent.json"
+$sharedCatalogPath = Join-Path $Root "src/catalog/catalog.json"
 $agentStartPath = Join-Path $Root "scripts/start-agent.ps1"
 Assert-True ($uiOutput.Contains($indexPath)) "ui command prints static GUI path"
 Assert-True ($uiOutput.Contains("file:///")) "ui command prints file URL"
@@ -109,7 +116,7 @@ Assert-True (Test-Path -LiteralPath $indexPath) "static GUI index exists"
 Assert-True (Test-Path -LiteralPath $appPath) "static GUI script exists"
 Assert-True (Test-Path -LiteralPath $stylePath) "static GUI stylesheet exists"
 Assert-True (Test-Path -LiteralPath $agentPath) "local Agent script exists"
-Assert-True (Test-Path -LiteralPath $agentCatalogPath) "local Agent catalog exists"
+Assert-True (Test-Path -LiteralPath $sharedCatalogPath) "shared catalog exists for CLI and Agent"
 Assert-True (Test-Path -LiteralPath $agentStartPath) "local Agent start script exists"
 
 $indexHtml = Get-Content -Raw -LiteralPath $indexPath
@@ -170,11 +177,14 @@ Assert-True ($agentPs1.Contains("/health")) "local Agent exposes health endpoint
 Assert-True ($agentPs1.Contains("/execute")) "local Agent exposes execute endpoint"
 Assert-True ($agentPs1.Contains("AllowExecute")) "local Agent requires explicit execution opt-in"
 Assert-True ($agentPs1.Contains("Start-Process")) "local Agent opens a visible execution window"
+Assert-True ($agentPs1.Contains("src/catalog/catalog.json")) "local Agent reads the shared catalog"
 
 $pagesWorkflow = Join-Path $Root ".github/workflows/pages.yml"
 $pagesDoc = Join-Path $Root "docs/GITHUB_PAGES.md"
+$contentDoc = Join-Path $Root "docs/CONTENT_CONFIGURATION.md"
 Assert-True (Test-Path -LiteralPath $pagesWorkflow) "GitHub Pages workflow exists"
 Assert-True (Test-Path -LiteralPath $pagesDoc) "GitHub Pages documentation exists"
+Assert-True (Test-Path -LiteralPath $contentDoc) "content configuration documentation exists"
 
 $sourceOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File $SourceCli plan "examples/ai-backend.envforge.yaml" -Json 2>&1
 if ($LASTEXITCODE -eq 0) {

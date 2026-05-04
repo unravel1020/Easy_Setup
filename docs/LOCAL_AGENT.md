@@ -41,6 +41,16 @@ POST /execute
 
 `POST /execute` requires `-AllowExecute`. Otherwise it returns a safe refusal plus the generated plan.
 
+## Catalog Source
+
+The Agent reads the shared catalog from:
+
+```text
+src/catalog/catalog.json
+```
+
+It resolves selected UI stack IDs against `stacks[].id`, expands their `recipeIds`, and reads platform install commands from `recipes[].install.windows` for the current MVP.
+
 ## Security Notes
 
 - The listener binds only to `127.0.0.1`.

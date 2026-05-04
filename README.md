@@ -84,6 +84,16 @@ The engineering CLI entrypoint is:
 powershell -ExecutionPolicy Bypass -File src/cmd/envforge.ps1 plan examples/ai-backend.envforge.yaml
 ```
 
+## Content Configuration
+
+Executable recipes and stack templates are now centralized in:
+
+```text
+src/catalog/catalog.json
+```
+
+The CLI, core planner and local Agent all read this shared catalog. See `docs/CONTENT_CONFIGURATION.md` for the schema and update rules.
+
 ## Safety
 
 The GitHub Pages UI cannot directly execute local commands by itself. Real execution requires the user to run the trusted local Agent with `-AllowExecute` on their own machine. Without that Agent, the UI only generates and copies auditable PowerShell commands.

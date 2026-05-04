@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$CatalogPath = Join-Path $PSScriptRoot "catalog.agent.json"
+$CatalogPath = Join-Path $Root "src/catalog/catalog.json"
 $LogDir = Join-Path $Root ".easy-setup/logs"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
@@ -99,15 +99,19 @@ function Read-AgentRequest($Client) {
 
 function Resolve-AgentPlan($ItemIds) {
   $catalog = Read-AgentCatalog
-  $itemMap = @{}
-  foreach ($item in $catalog.items) { $itemMap[$item.id] = $item }
+  $stackMap = @{}
+  foreach ($stack in $catalog.stacks) { $stackMap[$stack.id] = $stack }
   $recipeMap = @{}
   foreach ($recipe in $catalog.recipes) { $recipeMap[$recipe.id] = $recipe }
 
   $recipeIds = New-Object Collections.Generic.List[string]
   foreach ($itemId in @($ItemIds)) {
-    if ($itemMap.ContainsKey($itemId)) {
-      foreach ($recipeId in $itemMap[$itemId].recipeIds) { $recipeIds.Add($recipeId) }
+    if ($stackMap.ContainsKey($itemId)) {
+      foreach ($recipeId in $stackMap[$itemId].recipeIds) { $recipeIds.Add($recipeId) }
+      continue
+    }
+    if ($recipeMap.ContainsKey($itemId)) {
+      $recipeIds.Add($itemId)
     }
   }
 
@@ -117,7 +121,8 @@ function Resolve-AgentPlan($ItemIds) {
   }
 
   $recipes = @($unique.Values)
-  $commands = @($recipes | ForEach-Object { $_.command })
+  $platform = "windows"
+  $commands = @($recipes | ForEach-Object { $_.install.$platform })
   [pscustomobject]@{
     itemIds = @($ItemIds)
     recipes = $recipes
