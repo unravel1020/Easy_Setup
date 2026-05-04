@@ -396,7 +396,7 @@ async function loadWebCatalog() {
     if (!response.ok) throw new Error("Catalog request failed");
     normalizeWebCatalog(await response.json());
   } catch {
-    // file:// browsers may block JSON fetches; the embedded catalog keeps local MVP usage working.
+    // 某些浏览器会阻止 file:// 读取 JSON；内置目录用于保证本地 MVP 仍可运行。
   }
 }
 
@@ -660,12 +660,12 @@ function renderPlan() {
   const stackLines = [...state.selected].map((id) => `  - id: ${id}`).join("\n") || "  - id: template.ai-python-workstation";
   const installCommand = buildInstallCommand(recipes);
   byId("cli").textContent = [
-    installCommand ? "# Install selected environment" : "# Select a stack first",
+    installCommand ? "# 安装所选环境" : "# 请先选择一个环境栈",
     installCommand || "No install command yet.",
     "",
     "powershell -ExecutionPolicy Bypass -File mvp/envforge.ps1 plan examples/ai-backend.envforge.yaml",
     "",
-    "# Selection can be saved as:",
+    "# 当前选择可保存为：",
     "schema: envforge/v1",
     "name: custom-workstation",
     "stacks:",
