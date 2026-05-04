@@ -15,6 +15,9 @@ It is used by:
 - `src/core/EnvForgeCore.psm1`
 - `src/cmd/envforge.ps1`
 - `src/agent/EasySetupAgent.ps1`
+- `internal/catalog`
+- `cmd/easysetup`
+- `cmd/easysetup-agent`
 
 The static MVP UI loads its presentation catalog from:
 

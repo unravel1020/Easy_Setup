@@ -84,6 +84,16 @@ The engineering CLI entrypoint is:
 powershell -ExecutionPolicy Bypass -File src/cmd/envforge.ps1 plan examples/ai-backend.envforge.yaml
 ```
 
+The Go backend prototype is now available as a lightweight shared core and HTTP Agent:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/go-test.ps1
+go run ./cmd/easysetup plan template.fullstack-web
+go run ./cmd/easysetup-agent -port 17772
+```
+
+The Go code reads the same `src/catalog/catalog.json` used by the PowerShell MVP.
+
 ## Content Configuration
 
 Executable recipes and stack templates are now centralized in:

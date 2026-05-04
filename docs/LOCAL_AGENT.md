@@ -61,8 +61,10 @@ It resolves selected UI stack IDs against `stacks[].id`, expands their `recipeId
 
 ## Engineering Path
 
-1. Replace the PowerShell listener with a small signed desktop companion or Go/Wails local service.
-2. Add recipe signatures and allowlist validation.
-3. Add job state, progress streaming, cancellation and retry.
-4. Add package-manager adapters for winget, choco, scoop, brew, apt, dnf and pacman.
-5. Add a content configuration backend so catalog updates can be pulled without changing UI code.
+1. Keep the PowerShell Agent as the MVP execution bridge while the Go Agent matures.
+2. Use `cmd/easysetup-agent` as the new Go HTTP backend for `/health`, `/catalog` and `/plan`.
+3. Port job logging, visible execution windows and explicit confirmation into the Go Agent.
+4. Add recipe signatures and allowlist validation.
+5. Add job state, progress streaming, cancellation and retry.
+6. Add package-manager adapters for winget, choco, scoop, brew, apt, dnf and pacman.
+7. Add a content configuration backend so catalog updates can be pulled without changing UI code.
