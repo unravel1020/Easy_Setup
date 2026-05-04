@@ -16,7 +16,13 @@ It is used by:
 - `src/cmd/envforge.ps1`
 - `src/agent/EasySetupAgent.ps1`
 
-The static MVP UI still contains a richer presentation catalog in `mvp/web/app.js`. That UI data will be migrated into a web catalog file in the next step, but install execution already resolves through the shared catalog.
+The static MVP UI loads its presentation catalog from:
+
+```text
+mvp/web/catalog.web.json
+```
+
+`mvp/web/app.js` still keeps an embedded fallback catalog so local `file://` usage continues to work in browsers that block JSON fetches. GitHub Pages and normal HTTP hosting use `catalog.web.json` first.
 
 ## Main Objects
 
@@ -62,4 +68,4 @@ The static MVP UI still contains a richer presentation catalog in `mvp/web/app.j
 
 ## Next Engineering Step
 
-The next step is to extract the UI presentation content into `mvp/web/catalog.web.json`, then load it with `fetch`. After that, GitHub Pages content can be updated by editing JSON instead of editing JavaScript.
+The next step is to generate `mvp/web/catalog.web.json` from `src/catalog/catalog.json` plus presentation metadata, so execution recipes and UI cards cannot drift apart.

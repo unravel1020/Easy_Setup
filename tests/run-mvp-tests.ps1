@@ -105,6 +105,7 @@ $cmdOutput = & (Join-Path $Root "mvp/envforge.cmd") 2>&1 | Out-String
 $indexPath = Join-Path $Root "mvp/web/index.html"
 $appPath = Join-Path $Root "mvp/web/app.js"
 $stylePath = Join-Path $Root "mvp/web/styles.css"
+$webCatalogPath = Join-Path $Root "mvp/web/catalog.web.json"
 $agentPath = Join-Path $Root "src/agent/EasySetupAgent.ps1"
 $sharedCatalogPath = Join-Path $Root "src/catalog/catalog.json"
 $agentStartPath = Join-Path $Root "scripts/start-agent.ps1"
@@ -115,6 +116,7 @@ Assert-True ($cmdOutput.Contains($indexPath)) "cmd wrapper defaults to UI withou
 Assert-True (Test-Path -LiteralPath $indexPath) "static GUI index exists"
 Assert-True (Test-Path -LiteralPath $appPath) "static GUI script exists"
 Assert-True (Test-Path -LiteralPath $stylePath) "static GUI stylesheet exists"
+Assert-True (Test-Path -LiteralPath $webCatalogPath) "static GUI web catalog exists"
 Assert-True (Test-Path -LiteralPath $agentPath) "local Agent script exists"
 Assert-True (Test-Path -LiteralPath $sharedCatalogPath) "shared catalog exists for CLI and Agent"
 Assert-True (Test-Path -LiteralPath $agentStartPath) "local Agent start script exists"
@@ -122,9 +124,15 @@ Assert-True (Test-Path -LiteralPath $agentStartPath) "local Agent start script e
 $indexHtml = Get-Content -Raw -LiteralPath $indexPath
 $appJs = Get-Content -Raw -LiteralPath $appPath
 $stylesCss = Get-Content -Raw -LiteralPath $stylePath
+$webCatalog = Get-Content -Raw -LiteralPath $webCatalogPath | ConvertFrom-Json
 $agentPs1 = Get-Content -Raw -LiteralPath $agentPath
 Assert-True ($indexHtml.Contains("./app.js")) "static GUI references app.js"
 Assert-True ($indexHtml.Contains("./styles.css")) "static GUI references styles.css"
+Assert-True ($appJs.Contains("catalog.web.json")) "static GUI loads configurable web catalog"
+Assert-True ($appJs.Contains("loadWebCatalog")) "static GUI has web catalog loader"
+Assert-True (@($webCatalog.catalog.items).Count -ge 20) "web catalog contains selectable items"
+Assert-True (@($webCatalog.catalog.items | Where-Object { $_.id -eq "template.fullstack-web" }).Count -eq 1) "web catalog contains fullstack template"
+Assert-True ($webCatalog.officialLinks."frontend.vue".Contains("vuejs.org")) "web catalog contains official links"
 Assert-True ($appJs.Contains("template.ai-python-workstation")) "static GUI exposes AI template"
 Assert-True ($appJs.Contains("template.fullstack-web")) "static GUI exposes fullstack template"
 Assert-True ($appJs.Contains("themeToggle")) "static GUI exposes theme toggle"

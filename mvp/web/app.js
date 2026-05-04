@@ -105,7 +105,7 @@
   }
 };
 
-const catalog = {
+let catalog = {
   categories: ["all", "templates", "languages", "frontend", "backend", "ai", "testing", "operations", "skills", "vibe", "harness", "linux", "virtualization", "devops"],
   items: [
     item("template.ai-python-workstation", "templates", ["git", "python", "notebook.jupyter", "ai.pytorch", "ai.transformers", "ai.langchain", "ai.llamaindex"], {
@@ -262,7 +262,7 @@ const catalog = {
   }
 };
 
-const officialLinks = {
+let officialLinks = {
   "template.ai-python-workstation": "https://www.python.org/",
   "template.fullstack-web": "https://developer.mozilla.org/",
   "language.go": "https://go.dev/",
@@ -293,7 +293,7 @@ const officialLinks = {
   docker: "https://www.docker.com/"
 };
 
-const resourceLinks = {
+let resourceLinks = {
   "Python basics": "https://docs.python.org/3/tutorial/",
   "Python 入门": "https://docs.python.org/zh-cn/3/tutorial/",
   "PyTorch 60-minute blitz": "https://pytorch.org/tutorials/beginner/deep_learning_60min_blitz.html",
@@ -338,7 +338,7 @@ const resourceLinks = {
   "Docker 入门": "https://docs.docker.com/get-started/"
 };
 
-const iconPaths = {
+let iconPaths = {
   templates: "M4 5h16v4H4V5Zm0 6h7v8H4v-8Zm9 0h7v8h-7v-8Z",
   languages: "M8 4 3 9l5 5 1.4-1.4L5.8 9 9.4 5.4 8 4Zm8 0-1.4 1.4L18.2 9l-3.6 3.6L16 14l5-5-5-5ZM11.2 20l4-16h-2.1l-4 16h2.1Z",
   frontend: "M4 5h16v14H4V5Zm2 3v9h12V8H6Zm2 2h5v2H8v-2Z",
@@ -378,6 +378,26 @@ const state = {
 
 const byId = (id) => document.getElementById(id);
 const t = () => translations[state.language];
+
+function normalizeWebCatalog(data) {
+  if (!data || !data.catalog || !Array.isArray(data.catalog.items)) {
+    throw new Error("Invalid web catalog");
+  }
+  catalog = data.catalog;
+  officialLinks = data.officialLinks || officialLinks;
+  resourceLinks = data.resourceLinks || resourceLinks;
+  iconPaths = data.iconPaths || iconPaths;
+}
+
+async function loadWebCatalog() {
+  try {
+    const response = await fetch("./catalog.web.json", { cache: "no-store" });
+    if (!response.ok) throw new Error("Catalog request failed");
+    normalizeWebCatalog(await response.json());
+  } catch {
+    // file:// browsers may block JSON fetches; the embedded catalog keeps local MVP usage working.
+  }
+}
 
 function getItemText(item) {
   const fallback = item.text.en;
@@ -713,6 +733,11 @@ byId("expandSidebar").addEventListener("click", () => {
   applyShellState();
 });
 
-render();
-refreshAgentStatus();
-window.setInterval(refreshAgentStatus, 5000);
+async function initializeApp() {
+  await loadWebCatalog();
+  render();
+  refreshAgentStatus();
+  window.setInterval(refreshAgentStatus, 5000);
+}
+
+initializeApp();

@@ -94,6 +94,14 @@ src/catalog/catalog.json
 
 The CLI, core planner and local Agent all read this shared catalog. See `docs/CONTENT_CONFIGURATION.md` for the schema and update rules.
 
+The static website also has a configurable presentation catalog:
+
+```text
+mvp/web/catalog.web.json
+```
+
+GitHub Pages loads this file first, while `app.js` keeps a fallback copy for local `file://` usage.
+
 ## Safety
 
 The GitHub Pages UI cannot directly execute local commands by itself. Real execution requires the user to run the trusted local Agent with `-AllowExecute` on their own machine. Without that Agent, the UI only generates and copies auditable PowerShell commands.
