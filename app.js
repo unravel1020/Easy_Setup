@@ -21,6 +21,9 @@
     jobsOffline: "Start a local Agent to view job history.",
     jobScript: "Script",
     jobLog: "Log",
+    viewLog: "View Log",
+    hideLog: "Hide Log",
+    emptyLog: "Log is empty.",
     emptyPlan: "Select a stack to generate an install plan.",
     itemCount: "items",
     themeDark: "Dark",
@@ -78,6 +81,9 @@
     jobsOffline: "启动本地 Agent 后可查看执行历史。",
     jobScript: "脚本",
     jobLog: "日志",
+    viewLog: "查看日志",
+    hideLog: "收起日志",
+    emptyLog: "日志为空。",
     emptyPlan: "选择一个环境栈后生成安装计划。",
     itemCount: "项",
     themeDark: "深色",
@@ -377,6 +383,8 @@ const state = {
   query: "",
   selected: new Set(),
   jobs: [],
+  jobLogs: {},
+  expandedLogs: new Set(),
   theme: localStorage.getItem("envforge-theme") || "light",
   language: localStorage.getItem("envforge-language") || "en",
   sidebarCollapsed: localStorage.getItem("envforge-sidebar") === "collapsed",
@@ -652,6 +660,15 @@ function shortJobId(id) {
   return id ? id.slice(0, 8) : "-";
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function renderJobs() {
   const node = byId("jobs");
   if (!node) return;
@@ -663,7 +680,10 @@ function renderJobs() {
     node.innerHTML = `<p class="muted-note">${t().noJobs}</p>`;
     return;
   }
-  node.innerHTML = state.jobs.slice(0, 5).map((job) => `
+  node.innerHTML = state.jobs.slice(0, 5).map((job) => {
+    const expanded = state.expandedLogs.has(job.id);
+    const log = state.jobLogs[job.id] || "";
+    return `
     <div class="job">
       <div class="job-head">
         <strong>${shortJobId(job.id)}</strong>
@@ -671,8 +691,39 @@ function renderJobs() {
       </div>
       <code>${t().jobScript}: ${job.scriptPath || "-"}</code>
       <code>${t().jobLog}: ${job.logPath || "-"}</code>
+      <button class="inline-action job-log-toggle" type="button" data-job-log="${job.id}">
+        ${expanded ? t().hideLog : t().viewLog}
+      </button>
+      ${expanded ? `<pre class="job-log">${escapeHtml(log || t().emptyLog)}</pre>` : ""}
     </div>
-  `).join("");
+  `;
+  }).join("");
+
+  document.querySelectorAll("[data-job-log]").forEach((button) => {
+    button.addEventListener("click", () => toggleJobLog(button.dataset.jobLog));
+  });
+}
+
+async function toggleJobLog(jobId) {
+  if (!jobId) return;
+  if (state.expandedLogs.has(jobId)) {
+    state.expandedLogs.delete(jobId);
+    renderJobs();
+    return;
+  }
+  if (!state.jobLogs[jobId] && state.agent.online) {
+    try {
+      const response = await fetch(`${state.agent.url}/jobs/${jobId}/log`, { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        state.jobLogs[jobId] = data.log || "";
+      }
+    } catch {
+      state.jobLogs[jobId] = "";
+    }
+  }
+  state.expandedLogs.add(jobId);
+  renderJobs();
 }
 
 async function executeViaAgent(itemIds, button) {
