@@ -94,6 +94,13 @@ go run ./cmd/easysetup-agent -port 17772
 
 The Go code reads the same `src/catalog/catalog.json` used by the PowerShell MVP.
 
+For convenience on Windows:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1 -AllowExecute
+```
+
 ## Content Configuration
 
 Executable recipes and stack templates are now centralized in:

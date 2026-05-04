@@ -15,6 +15,7 @@ func main() {
 	host := flag.String("host", "127.0.0.1", "listen host")
 	port := flag.String("port", "17772", "listen port")
 	platform := flag.String("platform", "windows", "target platform")
+	jobDir := flag.String("job-dir", ".easy-setup/logs", "directory for job scripts and logs")
 	allowExecute := flag.Bool("allow-execute", false, "enable execution endpoint")
 	flag.Parse()
 
@@ -29,6 +30,7 @@ func main() {
 	fmt.Printf("AllowExecute: %v\n", *allowExecute)
 
 	server := agent.New(catalogData, *platform, *allowExecute)
+	server.JobDir = *jobDir
 	if err := http.ListenAndServe(address, server.Handler()); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

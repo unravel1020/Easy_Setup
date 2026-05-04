@@ -372,7 +372,8 @@ const state = {
   agent: {
     online: false,
     allowExecute: false,
-    url: "http://127.0.0.1:17771"
+    url: "http://127.0.0.1:17771",
+    urls: ["http://127.0.0.1:17771", "http://127.0.0.1:17772"]
   }
 };
 
@@ -447,15 +448,20 @@ function renderAgentStatus() {
 }
 
 async function refreshAgentStatus() {
-  try {
-    const response = await fetch(`${state.agent.url}/health`, { cache: "no-store" });
-    if (!response.ok) throw new Error("Agent unavailable");
-    const data = await response.json();
-    state.agent.online = Boolean(data.ok);
-    state.agent.allowExecute = Boolean(data.allowExecute);
-  } catch {
-    state.agent.online = false;
-    state.agent.allowExecute = false;
+  for (const url of state.agent.urls) {
+    try {
+      const response = await fetch(`${url}/health`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Agent unavailable");
+      const data = await response.json();
+      state.agent.url = url;
+      state.agent.online = Boolean(data.ok);
+      state.agent.allowExecute = Boolean(data.allowExecute);
+      renderAgentStatus();
+      return;
+    } catch {
+      state.agent.online = false;
+      state.agent.allowExecute = false;
+    }
   }
   renderAgentStatus();
 }

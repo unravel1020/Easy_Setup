@@ -24,11 +24,21 @@ Start execution mode:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-agent.ps1 -AllowExecute
 ```
 
+Start the Go Agent prototype:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1 -AllowExecute
+```
+
 The Agent listens on:
 
 ```text
 http://127.0.0.1:17771
+http://127.0.0.1:17772
 ```
+
+`17771` is the PowerShell Agent. `17772` is the Go Agent prototype.
 
 ## API
 

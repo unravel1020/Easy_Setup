@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/unravel1020/Easy_Setup/internal/catalog"
@@ -52,5 +54,39 @@ func TestExecuteDisabled(t *testing.T) {
 
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+}
+
+func TestExecuteCreatesJob(t *testing.T) {
+	catalogData, err := catalog.Load("../../src/catalog/catalog.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobDir := t.TempDir()
+	launched := ""
+	server := New(catalogData, "windows", true)
+	server.JobDir = jobDir
+	server.Launch = func(scriptPath string) error {
+		launched = scriptPath
+		return nil
+	}
+
+	body := bytes.NewBufferString(`{"itemIds":["template.fullstack-web"]}`)
+	request := httptest.NewRequest(http.MethodPost, "/execute", body)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if launched == "" {
+		t.Fatal("expected launcher to be called")
+	}
+	if _, err := os.Stat(launched); err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Dir(launched) != jobDir {
+		t.Fatalf("script dir = %q, want %q", filepath.Dir(launched), jobDir)
 	}
 }

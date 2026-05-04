@@ -11,6 +11,8 @@ type Server struct {
 	Catalog      *catalog.Catalog
 	AllowExecute bool
 	Platform     string
+	JobDir       string
+	Launch       Launcher
 }
 
 type planRequest struct {
@@ -25,6 +27,8 @@ func New(catalogData *catalog.Catalog, platform string, allowExecute bool) *Serv
 		Catalog:      catalogData,
 		AllowExecute: allowExecute,
 		Platform:     platform,
+		JobDir:       ".easy-setup/logs",
+		Launch:       DefaultLauncher,
 	}
 }
 
@@ -86,11 +90,35 @@ func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 	if !s.AllowExecute {
 		writeJSON(w, http.StatusForbidden, map[string]any{
 			"ok":     false,
-			"reason": "Go Agent execution is not enabled yet.",
+			"reason": "Agent was not started with -allow-execute.",
 		})
 		return
 	}
-	writeError(w, http.StatusNotImplemented, "execution will be implemented after job logging and confirmation are ported")
+
+	var request planRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	plan, err := s.Catalog.Plan(s.Platform, request.ItemIDs)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	job, err := CreateJob(plan, s.JobDir, s.Launch)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{
+			"ok":     false,
+			"reason": err.Error(),
+			"job":    job,
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":  true,
+		"job": job,
+	})
 }
 
 func cors(next http.Handler) http.Handler {

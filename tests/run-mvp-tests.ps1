@@ -109,6 +109,7 @@ $webCatalogPath = Join-Path $Root "mvp/web/catalog.web.json"
 $agentPath = Join-Path $Root "src/agent/EasySetupAgent.ps1"
 $sharedCatalogPath = Join-Path $Root "src/catalog/catalog.json"
 $agentStartPath = Join-Path $Root "scripts/start-agent.ps1"
+$goAgentStartPath = Join-Path $Root "scripts/start-go-agent.ps1"
 Assert-True ($uiOutput.Contains($indexPath)) "ui command prints static GUI path"
 Assert-True ($uiOutput.Contains("file:///")) "ui command prints file URL"
 Assert-True ($defaultMvpOutput.Contains($indexPath)) "mvp wrapper defaults to UI when run without args"
@@ -120,6 +121,7 @@ Assert-True (Test-Path -LiteralPath $webCatalogPath) "static GUI web catalog exi
 Assert-True (Test-Path -LiteralPath $agentPath) "local Agent script exists"
 Assert-True (Test-Path -LiteralPath $sharedCatalogPath) "shared catalog exists for CLI and Agent"
 Assert-True (Test-Path -LiteralPath $agentStartPath) "local Agent start script exists"
+Assert-True (Test-Path -LiteralPath $goAgentStartPath) "Go Agent start script exists"
 
 $indexHtml = Get-Content -Raw -LiteralPath $indexPath
 $appJs = Get-Content -Raw -LiteralPath $appPath
@@ -178,6 +180,7 @@ Assert-True ($stylesCss.Contains("overflow: hidden")) "static GUI prevents whole
 Assert-True ($stylesCss.Contains("overscroll-behavior: contain")) "static GUI contains scroll within active panel"
 Assert-True ($indexHtml.Contains("agentStatus")) "static GUI exposes local Agent status"
 Assert-True ($appJs.Contains("127.0.0.1:17771")) "static GUI targets local Agent loopback port"
+Assert-True ($appJs.Contains("127.0.0.1:17772")) "static GUI targets Go Agent loopback port"
 Assert-True ($appJs.Contains("refreshAgentStatus")) "static GUI checks local Agent health"
 Assert-True ($appJs.Contains("executeViaAgent")) "static GUI can execute through local Agent"
 Assert-True ($stylesCss.Contains(".agent-status")) "static GUI styles local Agent status"
