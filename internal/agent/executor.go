@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/unravel1020/Easy_Setup/internal/catalog"
 )
+
+var ErrJobNotFound = errors.New("job not found")
 
 type Launcher func(scriptPath string) error
 
@@ -35,9 +38,7 @@ func DefaultLauncher(scriptPath string) error {
 }
 
 func CreateJob(plan *catalog.Plan, jobDir string, launch Launcher) (*Job, error) {
-	if jobDir == "" {
-		jobDir = filepath.Join(".easy-setup", "logs")
-	}
+	jobDir = defaultJobDir(jobDir)
 	if launch == nil {
 		launch = DefaultLauncher
 	}
@@ -111,6 +112,70 @@ func writeJob(path string, job *Job) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
+}
+
+func ReadJob(jobDir string, id string) (*Job, error) {
+	if id == "" {
+		return nil, ErrJobNotFound
+	}
+	jobPath := filepath.Join(defaultJobDir(jobDir), id+".json")
+	data, err := os.ReadFile(jobPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, ErrJobNotFound
+		}
+		return nil, err
+	}
+	var job Job
+	if err := json.Unmarshal(data, &job); err != nil {
+		return nil, err
+	}
+	return &job, nil
+}
+
+func ListJobs(jobDir string) ([]Job, error) {
+	entries, err := os.ReadDir(defaultJobDir(jobDir))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []Job{}, nil
+		}
+		return nil, err
+	}
+
+	jobs := []Job{}
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(defaultJobDir(jobDir), entry.Name()))
+		if err != nil {
+			return nil, err
+		}
+		var job Job
+		if err := json.Unmarshal(data, &job); err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, job)
+	}
+	sortJobs(jobs)
+	return jobs, nil
+}
+
+func sortJobs(jobs []Job) {
+	for i := 0; i < len(jobs); i++ {
+		for j := i + 1; j < len(jobs); j++ {
+			if jobs[j].CreatedAt.After(jobs[i].CreatedAt) {
+				jobs[i], jobs[j] = jobs[j], jobs[i]
+			}
+		}
+	}
+}
+
+func defaultJobDir(jobDir string) string {
+	if jobDir == "" {
+		return filepath.Join(".easy-setup", "logs")
+	}
+	return jobDir
 }
 
 func newJobID() (string, error) {

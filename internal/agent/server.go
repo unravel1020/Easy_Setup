@@ -2,7 +2,9 @@ package agent
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/unravel1020/Easy_Setup/internal/catalog"
 )
@@ -38,6 +40,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/catalog", s.handleCatalog)
 	mux.HandleFunc("/plan", s.handlePlan)
 	mux.HandleFunc("/execute", s.handleExecute)
+	mux.HandleFunc("/jobs", s.handleJobs)
+	mux.HandleFunc("/jobs/", s.handleJob)
 	return cors(mux)
 }
 
@@ -119,6 +123,43 @@ func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 		"ok":  true,
 		"job": job,
 	})
+}
+
+func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	jobs, err := ListJobs(s.JobDir)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"jobs": jobs,
+	})
+}
+
+func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	id := strings.TrimPrefix(r.URL.Path, "/jobs/")
+	if id == "" || strings.Contains(id, "/") {
+		writeError(w, http.StatusNotFound, "job not found")
+		return
+	}
+	job, err := ReadJob(s.JobDir, id)
+	if err != nil {
+		if errors.Is(err, ErrJobNotFound) {
+			writeError(w, http.StatusNotFound, "job not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, job)
 }
 
 func cors(next http.Handler) http.Handler {
