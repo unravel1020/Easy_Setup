@@ -16,6 +16,11 @@
     actionsTitle: "Actions",
     environmentTitle: "Environment",
     cliPreviewTitle: "CLI Preview",
+    jobsTitle: "Jobs",
+    noJobs: "No jobs yet.",
+    jobsOffline: "Start a local Agent to view job history.",
+    jobScript: "Script",
+    jobLog: "Log",
     emptyPlan: "Select a stack to generate an install plan.",
     itemCount: "items",
     themeDark: "Dark",
@@ -68,6 +73,11 @@
     actionsTitle: "操作",
     environmentTitle: "环境变量",
     cliPreviewTitle: "CLI 预览",
+    jobsTitle: "执行历史",
+    noJobs: "暂无执行记录。",
+    jobsOffline: "启动本地 Agent 后可查看执行历史。",
+    jobScript: "脚本",
+    jobLog: "日志",
     emptyPlan: "选择一个环境栈后生成安装计划。",
     itemCount: "项",
     themeDark: "深色",
@@ -366,6 +376,7 @@ const state = {
   category: "templates",
   query: "",
   selected: new Set(),
+  jobs: [],
   theme: localStorage.getItem("envforge-theme") || "light",
   language: localStorage.getItem("envforge-language") || "en",
   sidebarCollapsed: localStorage.getItem("envforge-sidebar") === "collapsed",
@@ -447,6 +458,23 @@ function renderAgentStatus() {
     : (t().agentNoExecute || "Agent dry-run");
 }
 
+async function refreshJobs() {
+  if (!state.agent.online) {
+    state.jobs = [];
+    renderJobs();
+    return;
+  }
+  try {
+    const response = await fetch(`${state.agent.url}/jobs`, { cache: "no-store" });
+    if (!response.ok) throw new Error("Jobs unavailable");
+    const data = await response.json();
+    state.jobs = Array.isArray(data.jobs) ? data.jobs : [];
+  } catch {
+    state.jobs = [];
+  }
+  renderJobs();
+}
+
 async function refreshAgentStatus() {
   for (const url of state.agent.urls) {
     try {
@@ -457,6 +485,7 @@ async function refreshAgentStatus() {
       state.agent.online = Boolean(data.ok);
       state.agent.allowExecute = Boolean(data.allowExecute);
       renderAgentStatus();
+      refreshJobs();
       return;
     } catch {
       state.agent.online = false;
@@ -464,6 +493,7 @@ async function refreshAgentStatus() {
     }
   }
   renderAgentStatus();
+  refreshJobs();
 }
 
 function renderCategories() {
@@ -618,6 +648,33 @@ function markCopied(button) {
   }, 1500);
 }
 
+function shortJobId(id) {
+  return id ? id.slice(0, 8) : "-";
+}
+
+function renderJobs() {
+  const node = byId("jobs");
+  if (!node) return;
+  if (!state.agent.online) {
+    node.innerHTML = `<p class="muted-note">${t().jobsOffline}</p>`;
+    return;
+  }
+  if (!state.jobs.length) {
+    node.innerHTML = `<p class="muted-note">${t().noJobs}</p>`;
+    return;
+  }
+  node.innerHTML = state.jobs.slice(0, 5).map((job) => `
+    <div class="job">
+      <div class="job-head">
+        <strong>${shortJobId(job.id)}</strong>
+        <span>${job.status || "-"}</span>
+      </div>
+      <code>${t().jobScript}: ${job.scriptPath || "-"}</code>
+      <code>${t().jobLog}: ${job.logPath || "-"}</code>
+    </div>
+  `).join("");
+}
+
 async function executeViaAgent(itemIds, button) {
   if (!itemIds.length) return;
   if (!state.agent.online || !state.agent.allowExecute) {
@@ -634,6 +691,8 @@ async function executeViaAgent(itemIds, button) {
       body: JSON.stringify({ itemIds })
     });
     if (!response.ok) throw new Error("Agent execution failed");
+    await response.json().catch(() => null);
+    await refreshJobs();
     markCopied(button);
   } catch {
     copyText(buildInstallCommand(getRecipesForItems(itemIds)), button);
@@ -674,6 +733,7 @@ function renderPlan() {
     "  commands:",
     ...verify.map((command) => `    - ${command}`)
   ].join("\n");
+  renderJobs();
 }
 
 function render() {
@@ -744,6 +804,7 @@ async function initializeApp() {
   render();
   refreshAgentStatus();
   window.setInterval(refreshAgentStatus, 5000);
+  window.setInterval(refreshJobs, 5000);
 }
 
 initializeApp();
