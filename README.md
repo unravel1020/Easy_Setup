@@ -49,6 +49,24 @@ powershell -ExecutionPolicy Bypass -File mvp/envforge.ps1 ui
 
 Then open the printed `file:///.../mvp/web/index.html` URL in a browser.
 
+## Local Agent MVP
+
+The web UI stays lightweight and static. To let it execute real setup commands on the current Windows machine, start the local Agent first:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-agent.ps1
+```
+
+This starts a safe dry-run Agent at `http://127.0.0.1:17771`. The UI can detect it, but install buttons still fall back to copying commands.
+
+To allow real execution in a new PowerShell window:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-agent.ps1 -AllowExecute
+```
+
+When `-AllowExecute` is enabled, clicking `Execute Install` or a single card's `Install` button sends the selected stack to the local Agent. The Agent writes a job script and log under `.easy-setup/logs/`, then opens a PowerShell window to run the commands.
+
 ## CLI MVP
 
 The MVP CLI is intentionally safe by default. Planning and verification do not install anything.
@@ -68,7 +86,7 @@ powershell -ExecutionPolicy Bypass -File src/cmd/envforge.ps1 plan examples/ai-b
 
 ## Safety
 
-The static web UI cannot directly execute local install commands because browsers intentionally block local command execution from `file://` and GitHub Pages pages. For the MVP, install buttons generate and copy real PowerShell commands. A later desktop version can execute those commands through a trusted local bridge such as Wails.
+The GitHub Pages UI cannot directly execute local commands by itself. Real execution requires the user to run the trusted local Agent with `-AllowExecute` on their own machine. Without that Agent, the UI only generates and copies auditable PowerShell commands.
 
 ## Test
 

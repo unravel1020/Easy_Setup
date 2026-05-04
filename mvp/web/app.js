@@ -1,4 +1,4 @@
-const translations = {
+﻿const translations = {
   en: {
     brandSubtitle: "Environment setup",
     searchLabel: "Search",
@@ -21,10 +21,14 @@ const translations = {
     themeDark: "Dark",
     themeLight: "Light",
     languageToggle: "中文",
-    installSelected: "Copy Install",
+    installSelected: "Execute Install",
     installOne: "Install",
     copyCli: "Copy",
     copied: "Copied.",
+    agentOnline: "Agent online",
+    agentOffline: "Agent offline",
+    agentNoExecute: "Agent dry-run",
+    executeConfirm: "Execute selected install commands in a local PowerShell window?",
     official: "Official",
     hide: "Hide",
     menu: "Menu",
@@ -69,10 +73,14 @@ const translations = {
     themeDark: "深色",
     themeLight: "浅色",
     languageToggle: "EN",
-    installSelected: "复制安装",
+    installSelected: "执行安装",
     installOne: "安装",
     copyCli: "复制",
     copied: "已复制。",
+    agentOnline: "Agent 在线",
+    agentOffline: "Agent 离线",
+    agentNoExecute: "Agent 预览",
+    executeConfirm: "是否在本机 PowerShell 窗口中执行所选安装命令？",
     official: "官网",
     hide: "收起",
     menu: "菜单",
@@ -360,7 +368,12 @@ const state = {
   selected: new Set(),
   theme: localStorage.getItem("envforge-theme") || "light",
   language: localStorage.getItem("envforge-language") || "en",
-  sidebarCollapsed: localStorage.getItem("envforge-sidebar") === "collapsed"
+  sidebarCollapsed: localStorage.getItem("envforge-sidebar") === "collapsed",
+  agent: {
+    online: false,
+    allowExecute: false,
+    url: "http://127.0.0.1:17771"
+  }
 };
 
 const byId = (id) => document.getElementById(id);
@@ -396,6 +409,35 @@ function applyShellState() {
   byId("themeToggle").querySelector("span").textContent = state.theme === "dark" ? t().themeLight : t().themeDark;
   byId("appShell").classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
   applyTranslations();
+  renderAgentStatus();
+}
+
+function renderAgentStatus() {
+  const node = byId("agentStatus");
+  if (!node) return;
+  node.classList.toggle("online", state.agent.online);
+  node.classList.toggle("offline", !state.agent.online);
+  if (!state.agent.online) {
+    node.textContent = t().agentOffline || "Agent offline";
+    return;
+  }
+  node.textContent = state.agent.allowExecute
+    ? (t().agentOnline || "Agent online")
+    : (t().agentNoExecute || "Agent dry-run");
+}
+
+async function refreshAgentStatus() {
+  try {
+    const response = await fetch(`${state.agent.url}/health`, { cache: "no-store" });
+    if (!response.ok) throw new Error("Agent unavailable");
+    const data = await response.json();
+    state.agent.online = Boolean(data.ok);
+    state.agent.allowExecute = Boolean(data.allowExecute);
+  } catch {
+    state.agent.online = false;
+    state.agent.allowExecute = false;
+  }
+  renderAgentStatus();
 }
 
 function renderCategories() {
@@ -478,7 +520,7 @@ function renderCatalog() {
       event.stopPropagation();
       const item = catalog.items.find((candidate) => candidate.id === button.dataset.install);
       if (!item) return;
-      copyText(buildInstallCommand(getRecipesForItems([item.id])), button);
+      executeViaAgent([item.id], button);
     });
   });
 }
@@ -550,6 +592,28 @@ function markCopied(button) {
   }, 1500);
 }
 
+async function executeViaAgent(itemIds, button) {
+  if (!itemIds.length) return;
+  if (!state.agent.online || !state.agent.allowExecute) {
+    copyText(buildInstallCommand(getRecipesForItems(itemIds)), button);
+    return;
+  }
+  if (!window.confirm(t().executeConfirm || "Execute selected install commands in a local PowerShell window?")) {
+    return;
+  }
+  try {
+    const response = await fetch(`${state.agent.url}/execute`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemIds })
+    });
+    if (!response.ok) throw new Error("Agent execution failed");
+    markCopied(button);
+  } catch {
+    copyText(buildInstallCommand(getRecipesForItems(itemIds)), button);
+  }
+}
+
 function renderPlan() {
   const recipes = getPlanRecipes();
   const verify = recipes.map((recipeItem) => recipeItem.verify).filter(Boolean);
@@ -616,7 +680,7 @@ byId("templateWeb").addEventListener("click", () => {
 });
 
 byId("installSelected").addEventListener("click", () => {
-  copyText(buildInstallCommand(getPlanRecipes()), byId("installSelected"));
+  executeViaAgent([...state.selected], byId("installSelected"));
 });
 
 byId("copyCli").addEventListener("click", (event) => {
@@ -650,3 +714,5 @@ byId("expandSidebar").addEventListener("click", () => {
 });
 
 render();
+refreshAgentStatus();
+window.setInterval(refreshAgentStatus, 5000);

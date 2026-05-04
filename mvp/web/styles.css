@@ -236,9 +236,30 @@ small,
 
 .quick-actions {
   display: flex;
+  align-items: center;
   gap: 7px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.agent-status {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 9px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.agent-status.online {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  color: var(--accent);
 }
 
 .top-action {

@@ -98,6 +98,9 @@ $cmdOutput = & (Join-Path $Root "mvp/envforge.cmd") 2>&1 | Out-String
 $indexPath = Join-Path $Root "mvp/web/index.html"
 $appPath = Join-Path $Root "mvp/web/app.js"
 $stylePath = Join-Path $Root "mvp/web/styles.css"
+$agentPath = Join-Path $Root "src/agent/EasySetupAgent.ps1"
+$agentCatalogPath = Join-Path $Root "src/agent/catalog.agent.json"
+$agentStartPath = Join-Path $Root "scripts/start-agent.ps1"
 Assert-True ($uiOutput.Contains($indexPath)) "ui command prints static GUI path"
 Assert-True ($uiOutput.Contains("file:///")) "ui command prints file URL"
 Assert-True ($defaultMvpOutput.Contains($indexPath)) "mvp wrapper defaults to UI when run without args"
@@ -105,10 +108,14 @@ Assert-True ($cmdOutput.Contains($indexPath)) "cmd wrapper defaults to UI withou
 Assert-True (Test-Path -LiteralPath $indexPath) "static GUI index exists"
 Assert-True (Test-Path -LiteralPath $appPath) "static GUI script exists"
 Assert-True (Test-Path -LiteralPath $stylePath) "static GUI stylesheet exists"
+Assert-True (Test-Path -LiteralPath $agentPath) "local Agent script exists"
+Assert-True (Test-Path -LiteralPath $agentCatalogPath) "local Agent catalog exists"
+Assert-True (Test-Path -LiteralPath $agentStartPath) "local Agent start script exists"
 
 $indexHtml = Get-Content -Raw -LiteralPath $indexPath
 $appJs = Get-Content -Raw -LiteralPath $appPath
 $stylesCss = Get-Content -Raw -LiteralPath $stylePath
+$agentPs1 = Get-Content -Raw -LiteralPath $agentPath
 Assert-True ($indexHtml.Contains("./app.js")) "static GUI references app.js"
 Assert-True ($indexHtml.Contains("./styles.css")) "static GUI references styles.css"
 Assert-True ($appJs.Contains("template.ai-python-workstation")) "static GUI exposes AI template"
@@ -154,6 +161,15 @@ Assert-True ($appJs.Contains("Environment setup")) "static GUI includes English 
 Assert-True ($indexHtml.Contains("scroll-area")) "static GUI marks independent scroll areas"
 Assert-True ($stylesCss.Contains("overflow: hidden")) "static GUI prevents whole-page scrolling"
 Assert-True ($stylesCss.Contains("overscroll-behavior: contain")) "static GUI contains scroll within active panel"
+Assert-True ($indexHtml.Contains("agentStatus")) "static GUI exposes local Agent status"
+Assert-True ($appJs.Contains("127.0.0.1:17771")) "static GUI targets local Agent loopback port"
+Assert-True ($appJs.Contains("refreshAgentStatus")) "static GUI checks local Agent health"
+Assert-True ($appJs.Contains("executeViaAgent")) "static GUI can execute through local Agent"
+Assert-True ($stylesCss.Contains(".agent-status")) "static GUI styles local Agent status"
+Assert-True ($agentPs1.Contains("/health")) "local Agent exposes health endpoint"
+Assert-True ($agentPs1.Contains("/execute")) "local Agent exposes execute endpoint"
+Assert-True ($agentPs1.Contains("AllowExecute")) "local Agent requires explicit execution opt-in"
+Assert-True ($agentPs1.Contains("Start-Process")) "local Agent opens a visible execution window"
 
 $pagesWorkflow = Join-Path $Root ".github/workflows/pages.yml"
 $pagesDoc = Join-Path $Root "docs/GITHUB_PAGES.md"
