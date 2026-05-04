@@ -21,6 +21,8 @@
     jobsOffline: "Start a local Agent to view job history.",
     jobScript: "Script",
     jobLog: "Log",
+    jobExitCode: "Exit code",
+    jobCompletedAt: "Completed",
     viewLog: "View Log",
     hideLog: "Hide Log",
     emptyLog: "Log is empty.",
@@ -81,6 +83,8 @@
     jobsOffline: "启动本地 Agent 后可查看执行历史。",
     jobScript: "脚本",
     jobLog: "日志",
+    jobExitCode: "退出码",
+    jobCompletedAt: "完成时间",
     viewLog: "查看日志",
     hideLog: "收起日志",
     emptyLog: "日志为空。",
@@ -477,6 +481,7 @@ async function refreshJobs() {
     if (!response.ok) throw new Error("Jobs unavailable");
     const data = await response.json();
     state.jobs = Array.isArray(data.jobs) ? data.jobs : [];
+    await refreshExpandedJobLogs();
   } catch {
     state.jobs = [];
   }
@@ -669,6 +674,27 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function statusClass(status) {
+  const value = String(status || "").toLowerCase();
+  if (["completed"].includes(value)) return "success";
+  if (["failed", "launch-failed"].includes(value)) return "danger";
+  if (["running", "launched", "created"].includes(value)) return "active";
+  return "neutral";
+}
+
+function formatDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(state.language === "zh" ? "zh-CN" : "en-US", {
+    hour12: false,
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
 function renderJobs() {
   const node = byId("jobs");
   if (!node) return;
@@ -683,11 +709,16 @@ function renderJobs() {
   node.innerHTML = state.jobs.slice(0, 5).map((job) => {
     const expanded = state.expandedLogs.has(job.id);
     const log = state.jobLogs[job.id] || "";
+    const completedAt = formatDateTime(job.completedAt);
     return `
     <div class="job">
       <div class="job-head">
         <strong>${shortJobId(job.id)}</strong>
-        <span>${job.status || "-"}</span>
+        <span class="job-status ${statusClass(job.status)}">${job.status || "-"}</span>
+      </div>
+      <div class="job-meta">
+        ${Number.isInteger(job.exitCode) ? `<span>${t().jobExitCode}: ${job.exitCode}</span>` : ""}
+        ${completedAt ? `<span>${t().jobCompletedAt}: ${completedAt}</span>` : ""}
       </div>
       <code>${t().jobScript}: ${job.scriptPath || "-"}</code>
       <code>${t().jobLog}: ${job.logPath || "-"}</code>
@@ -702,6 +733,21 @@ function renderJobs() {
   document.querySelectorAll("[data-job-log]").forEach((button) => {
     button.addEventListener("click", () => toggleJobLog(button.dataset.jobLog));
   });
+}
+
+async function refreshExpandedJobLogs() {
+  if (!state.agent.online || !state.expandedLogs.size) return;
+  await Promise.all([...state.expandedLogs].map(async (jobId) => {
+    try {
+      const response = await fetch(`${state.agent.url}/jobs/${jobId}/log`, { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        state.jobLogs[jobId] = data.log || "";
+      }
+    } catch {
+      state.jobLogs[jobId] = state.jobLogs[jobId] || "";
+    }
+  }));
 }
 
 async function toggleJobLog(jobId) {

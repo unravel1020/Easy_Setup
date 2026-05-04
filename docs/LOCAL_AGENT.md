@@ -68,7 +68,16 @@ Go Agent 会在执行时创建 job 记录：
 .easy-setup/logs/<job-id>.json
 ```
 
-`GET /jobs` 返回当前 job 目录中的历史记录，按创建时间倒序排列。`GET /jobs/{id}` 返回单个 job 的脚本路径、日志路径、状态、环境选择和展开后的 actions。
+`GET /jobs` 返回当前 job 目录中的历史记录，按创建时间倒序排列。`GET /jobs/{id}` 返回单个 job 的 JSON 路径、脚本路径、日志路径、状态、退出码、完成时间、环境选择和展开后的 actions。
+
+当前状态包括：
+
+- `created`：记录已创建，尚未拉起脚本。
+- `launched`：脚本窗口已拉起，等待脚本回写运行状态。
+- `running`：脚本已经开始执行。
+- `completed`：脚本执行完成，退出码为 0。
+- `failed`：脚本执行完成，但安装或验证命令返回非 0 退出码。
+- `launch-failed`：Agent 未能拉起本地脚本窗口。
 
 `GET /jobs/{id}/log` 返回该 job 日志文件的尾部内容。当前上限为 32 KB，后续会演进为实时日志流。
 

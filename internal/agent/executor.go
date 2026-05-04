@@ -23,9 +23,12 @@ type Launcher func(scriptPath string) error
 type Job struct {
 	ID         string           `json:"id"`
 	Status     string           `json:"status"`
+	JobPath    string           `json:"jobPath"`
 	ScriptPath string           `json:"scriptPath"`
 	LogPath    string           `json:"logPath"`
 	CreatedAt  time.Time        `json:"createdAt"`
+	CompletedAt *time.Time      `json:"completedAt,omitempty"`
+	ExitCode   *int             `json:"exitCode,omitempty"`
 	ItemIDs    []string         `json:"itemIds"`
 	Actions    []catalog.Action `json:"actions"`
 }
@@ -58,6 +61,7 @@ func CreateJob(plan *catalog.Plan, jobDir string, launch Launcher) (*Job, error)
 	job := &Job{
 		ID:         id,
 		Status:     "created",
+		JobPath:    jobPath,
 		ScriptPath: scriptPath,
 		LogPath:    logPath,
 		CreatedAt:  time.Now().UTC(),
@@ -68,6 +72,7 @@ func CreateJob(plan *catalog.Plan, jobDir string, launch Launcher) (*Job, error)
 	if err := os.WriteFile(scriptPath, []byte(renderPowerShellJob(job)), 0o644); err != nil {
 		return nil, err
 	}
+	job.Status = "launched"
 	if err := writeJob(jobPath, job); err != nil {
 		return nil, err
 	}
@@ -76,16 +81,34 @@ func CreateJob(plan *catalog.Plan, jobDir string, launch Launcher) (*Job, error)
 		_ = writeJob(jobPath, job)
 		return job, err
 	}
-	job.Status = "launched"
-	if err := writeJob(jobPath, job); err != nil {
-		return nil, err
-	}
 	return job, nil
 }
 
 func renderPowerShellJob(job *Job) string {
 	lines := []string{
 		`$ErrorActionPreference = "Continue"`,
+		fmt.Sprintf(`$EasySetupJobPath = "%s"`, escapePowerShellString(job.JobPath)),
+		`$script:EasySetupExitCode = 0`,
+		`function Set-EasySetupJobStatus {`,
+		`  param([string]$Status, [int]$ExitCode = 0)`,
+		`  try {`,
+		`    $job = Get-Content -LiteralPath $EasySetupJobPath -Raw | ConvertFrom-Json`,
+		`    $job.status = $Status`,
+		`    if ($Status -eq "completed" -or $Status -eq "failed") {`,
+		`      $job | Add-Member -NotePropertyName completedAt -NotePropertyValue ((Get-Date).ToUniversalTime().ToString("o")) -Force`,
+		`      $job | Add-Member -NotePropertyName exitCode -NotePropertyValue $ExitCode -Force`,
+		`    }`,
+		`    $job | ConvertTo-Json -Depth 24 | Set-Content -LiteralPath $EasySetupJobPath -Encoding UTF8`,
+		`  } catch {`,
+		`    Write-Warning "Failed to update Easy_Setup job status: $_"`,
+		`  }`,
+		`}`,
+		`function Update-EasySetupExitCode {`,
+		`  param([bool]$Succeeded)`,
+		`  if (-not $Succeeded) { $script:EasySetupExitCode = 1 }`,
+		`  if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) { $script:EasySetupExitCode = $LASTEXITCODE }`,
+		`}`,
+		`Set-EasySetupJobStatus "running"`,
 		fmt.Sprintf(`Start-Transcript -Path "%s" -Force`, escapePowerShellString(job.LogPath)),
 		fmt.Sprintf(`Write-Host "Easy_Setup job %s"`, job.ID),
 	}
@@ -93,16 +116,29 @@ func renderPowerShellJob(job *Job) string {
 		lines = append(lines,
 			fmt.Sprintf(`Write-Host ""`),
 			fmt.Sprintf(`Write-Host "Running: %s"`, escapePowerShellString(action.ID)),
+			`$global:LASTEXITCODE = 0`,
 			action.Command,
+			`$easySetupLastSucceeded = $?`,
+			`Update-EasySetupExitCode $easySetupLastSucceeded`,
 		)
 		for _, verify := range action.Verify {
 			lines = append(lines,
 				fmt.Sprintf(`Write-Host "Verify: %s"`, escapePowerShellString(verify)),
+				`$global:LASTEXITCODE = 0`,
 				verify,
+				`$easySetupLastSucceeded = $?`,
+				`Update-EasySetupExitCode $easySetupLastSucceeded`,
 			)
 		}
 	}
-	lines = append(lines, `Stop-Transcript`)
+	lines = append(lines,
+		`Stop-Transcript`,
+		`if ($script:EasySetupExitCode -eq 0) {`,
+		`  Set-EasySetupJobStatus "completed" 0`,
+		`} else {`,
+		`  Set-EasySetupJobStatus "failed" $script:EasySetupExitCode`,
+		`}`,
+	)
 	return strings.Join(lines, "\r\n") + "\r\n"
 }
 
