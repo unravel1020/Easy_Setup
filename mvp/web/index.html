@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EnvForge MVP</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app" id="appShell">
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <div class="mark">EF</div>
+          <div class="brand-copy">
+            <h1>EnvForge</h1>
+            <p data-i18n="brandSubtitle">Environment setup</p>
+          </div>
+          <button id="collapseSidebar" class="side-toggle" type="button" title="Collapse sidebar" aria-label="Collapse sidebar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5 8.5 12l7 7"></path></svg>
+            <span class="sr-only" data-i18n="hide">Hide</span>
+          </button>
+        </div>
+
+        <label class="search">
+          <span data-i18n="searchLabel">Search</span>
+          <input id="search" type="search" placeholder="Python, Playwright, Terraform..." />
+        </label>
+
+        <nav id="categories" class="categories"></nav>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <button id="expandSidebar" class="icon-button" type="button" title="Show sidebar" aria-label="Show sidebar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+            <span class="sr-only" data-i18n="menu">Menu</span>
+          </button>
+          <div class="title">
+            <p class="eyebrow" data-i18n="eyebrow">MVP planner</p>
+            <h2 data-i18n="headline">Select a stack. Review the plan.</h2>
+          </div>
+          <div class="quick-actions">
+            <button id="templateAi" class="top-action" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 1 5 5v1h1a3 3 0 0 1 0 6h-1v1a5 5 0 0 1-10 0v-1H6a3 3 0 0 1 0-6h1V8a5 5 0 0 1 5-5Z"></path></svg>
+              <span data-i18n="aiTemplate">AI Python</span>
+            </button>
+            <button id="templateWeb" class="top-action" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4V5Zm2 3v9h12V8H6Z"></path></svg>
+              <span data-i18n="webTemplate">Fullstack</span>
+            </button>
+            <button id="installSelected" class="top-action" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10m0 0 4-4m-4 4-4-4M5 17h14v4H5v-4Z"></path></svg>
+              <span data-i18n="installSelected">Copy Install</span>
+            </button>
+            <button id="languageToggle" class="top-action compact-action" type="button" aria-label="Toggle language">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h9M9 3v2m1 0c-.7 3.2-2.5 5.8-5 8m3-4c1 1.6 2.4 2.9 4.2 4M14 21l4-10 4 10m-6.8-4h5.6"></path></svg>
+              <span>中文</span>
+            </button>
+            <button id="themeToggle" class="top-action compact-action" type="button" aria-label="Toggle theme">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.5A8 8 0 0 1 8.5 4 8 8 0 1 0 20 15.5Z"></path></svg>
+              <span>Dark</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="layout">
+          <div class="panel catalog-panel">
+            <div class="panel-head compact">
+              <div>
+                <h3 data-i18n="catalogTitle">Catalog</h3>
+                <p id="catalogCount">0 items</p>
+              </div>
+            </div>
+            <div id="catalog" class="catalog scroll-area"></div>
+          </div>
+
+          <div class="panel plan">
+            <div class="panel-head compact">
+              <div>
+                <h3 data-i18n="planTitle">Plan</h3>
+                <p data-i18n="planSubtitle">Dry-run preview</p>
+              </div>
+              <button id="clear" type="button" aria-label="Clear selection" data-i18n="clear">Clear</button>
+            </div>
+
+            <div class="summary">
+              <div><span id="selectedCount">0</span><small data-i18n="selected">selected</small></div>
+              <div><span id="actionCount">0</span><small data-i18n="actions">actions</small></div>
+              <div><span id="verifyCount">0</span><small data-i18n="checks">checks</small></div>
+            </div>
+
+            <div class="plan-scroll scroll-area">
+              <div class="section-title" data-i18n="actionsTitle">Actions</div>
+              <ol id="actions" class="actions"></ol>
+
+              <details class="details">
+                <summary data-i18n="environmentTitle">Environment</summary>
+                <div id="env" class="env"></div>
+              </details>
+
+              <details class="details">
+                <summary>
+                  <span data-i18n="cliPreviewTitle">CLI Preview</span>
+                  <button id="copyCli" class="inline-action copy-action" type="button" data-i18n="copyCli">Copy</button>
+                </summary>
+                <pre id="cli"></pre>
+              </details>
+              <div id="toast" class="toast" aria-live="polite"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

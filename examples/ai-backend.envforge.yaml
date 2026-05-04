@@ -1,0 +1,42 @@
+schema: envforge/v1
+name: ai-backend-workstation
+description: Example AI backend development environment selected from the GUI catalog.
+
+constraints:
+  userOnly: true
+  allowScripts: false
+
+stacks:
+  - id: language.python
+    version: "3.12"
+  - id: backend.fastapi
+  - id: ai.pytorch
+    variant: cpu
+  - id: ai.transformers
+  - id: ai.langchain
+  - id: ai.llamaindex
+  - id: notebook.jupyter
+
+tools:
+  - id: git
+    version: latest
+  - id: docker
+    version: latest
+    optional: true
+
+env:
+  PROJECT_ENV: development
+  PYTHONUTF8: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  HF_HOME: ./.cache/huggingface
+
+verify:
+  commands:
+    - python --version
+    - python -c "import torch; print(torch.__version__)"
+    - python -c "import transformers; print(transformers.__version__)"
+    - python -c "import langchain; print(langchain.__version__)"
+    - python -c "import llama_index; print('llama-index ok')"
+    - python -c "import fastapi; print(fastapi.__version__)"
+  env:
+    PROJECT_ENV: development

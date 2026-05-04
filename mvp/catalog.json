@@ -1,0 +1,412 @@
+{
+  "version": "0.1.0",
+  "categories": [
+    { "id": "languages", "name": "Languages" },
+    { "id": "frontend", "name": "Frontend" },
+    { "id": "backend", "name": "Backend" },
+    { "id": "ai", "name": "AI/ML" },
+    { "id": "devops", "name": "DevOps" },
+    { "id": "testing", "name": "Testing" },
+    { "id": "operations", "name": "Operations" }
+  ],
+  "recipes": [
+    {
+      "id": "git",
+      "name": "Git",
+      "category": "devops",
+      "detect": "git",
+      "verify": ["git --version"],
+      "install": {
+        "windows": "winget install --id Git.Git -e",
+        "macos": "brew install git",
+        "linux": "sudo apt install -y git"
+      }
+    },
+    {
+      "id": "node",
+      "name": "Node.js",
+      "category": "languages",
+      "detect": "node",
+      "verify": ["node --version"],
+      "install": {
+        "windows": "winget install --id OpenJS.NodeJS.LTS -e",
+        "macos": "brew install node",
+        "linux": "sudo apt install -y nodejs npm"
+      }
+    },
+    {
+      "id": "pnpm",
+      "name": "pnpm",
+      "category": "frontend",
+      "detect": "pnpm",
+      "verify": ["pnpm --version"],
+      "install": {
+        "windows": "corepack enable",
+        "macos": "corepack enable",
+        "linux": "corepack enable"
+      }
+    },
+    {
+      "id": "python",
+      "name": "Python",
+      "category": "languages",
+      "detect": "python",
+      "verify": ["python --version"],
+      "install": {
+        "windows": "winget install --id Python.Python.3.12 -e",
+        "macos": "brew install python@3.12",
+        "linux": "sudo apt install -y python3 python3-venv python3-pip"
+      }
+    },
+    {
+      "id": "go",
+      "name": "Go",
+      "category": "languages",
+      "detect": "go",
+      "verify": ["go version"],
+      "install": {
+        "windows": "winget install --id GoLang.Go -e",
+        "macos": "brew install go",
+        "linux": "sudo apt install -y golang"
+      }
+    },
+    {
+      "id": "rust",
+      "name": "Rust",
+      "category": "languages",
+      "detect": "rustc",
+      "verify": ["rustc --version", "cargo --version"],
+      "install": {
+        "windows": "winget install --id Rustlang.Rustup -e",
+        "macos": "brew install rustup-init",
+        "linux": "sudo apt install -y rustup"
+      }
+    },
+    {
+      "id": "java",
+      "name": "Java JDK",
+      "category": "languages",
+      "detect": "java",
+      "verify": ["java -version"],
+      "install": {
+        "windows": "winget install --id EclipseAdoptium.Temurin.21.JDK -e",
+        "macos": "brew install openjdk@21",
+        "linux": "sudo apt install -y openjdk-21-jdk"
+      }
+    },
+    {
+      "id": "cpp",
+      "name": "C/C++ Toolchain",
+      "category": "languages",
+      "detect": "cmake",
+      "verify": ["cmake --version"],
+      "install": {
+        "windows": "winget install --id Kitware.CMake -e",
+        "macos": "brew install cmake ninja",
+        "linux": "sudo apt install -y build-essential cmake ninja-build gdb"
+      }
+    },
+    {
+      "id": "docker",
+      "name": "Docker",
+      "category": "devops",
+      "detect": "docker",
+      "verify": ["docker --version"],
+      "install": {
+        "windows": "winget install --id Docker.DockerDesktop -e",
+        "macos": "brew install --cask docker",
+        "linux": "sudo apt install -y docker.io"
+      }
+    },
+    {
+      "id": "kubernetes.kubectl",
+      "name": "kubectl",
+      "category": "operations",
+      "detect": "kubectl",
+      "verify": ["kubectl version --client"],
+      "install": {
+        "windows": "winget install --id Kubernetes.kubectl -e",
+        "macos": "brew install kubectl",
+        "linux": "sudo apt install -y kubectl"
+      }
+    },
+    {
+      "id": "helm",
+      "name": "Helm",
+      "category": "operations",
+      "detect": "helm",
+      "verify": ["helm version"],
+      "install": {
+        "windows": "winget install --id Helm.Helm -e",
+        "macos": "brew install helm",
+        "linux": "sudo apt install -y helm"
+      }
+    },
+    {
+      "id": "terraform",
+      "name": "Terraform",
+      "category": "operations",
+      "detect": "terraform",
+      "verify": ["terraform version"],
+      "install": {
+        "windows": "winget install --id Hashicorp.Terraform -e",
+        "macos": "brew install terraform",
+        "linux": "sudo apt install -y terraform"
+      }
+    },
+    {
+      "id": "ansible",
+      "name": "Ansible",
+      "category": "operations",
+      "detect": "ansible",
+      "verify": ["ansible --version"],
+      "install": {
+        "windows": "python -m pip install ansible",
+        "macos": "python3 -m pip install ansible",
+        "linux": "sudo apt install -y ansible"
+      }
+    },
+    {
+      "id": "testing.playwright",
+      "name": "Playwright",
+      "category": "testing",
+      "detect": "npx",
+      "verify": ["npx playwright --version"],
+      "install": {
+        "windows": "npm init playwright@latest",
+        "macos": "npm init playwright@latest",
+        "linux": "npm init playwright@latest"
+      }
+    },
+    {
+      "id": "testing.pytest",
+      "name": "pytest",
+      "category": "testing",
+      "detect": "python",
+      "verify": ["python -m pytest --version"],
+      "install": {
+        "windows": "python -m pip install pytest",
+        "macos": "python3 -m pip install pytest",
+        "linux": "python3 -m pip install pytest"
+      }
+    },
+    {
+      "id": "testing.postman",
+      "name": "Postman",
+      "category": "testing",
+      "detect": "postman",
+      "verify": ["postman --version"],
+      "install": {
+        "windows": "winget install --id Postman.Postman -e",
+        "macos": "brew install --cask postman",
+        "linux": "sudo snap install postman"
+      }
+    },
+    {
+      "id": "backend.fastapi",
+      "name": "FastAPI",
+      "category": "backend",
+      "detect": "python",
+      "verify": ["python -c \"import fastapi; print(fastapi.__version__)\""],
+      "install": {
+        "windows": "python -m pip install fastapi uvicorn",
+        "macos": "python3 -m pip install fastapi uvicorn",
+        "linux": "python3 -m pip install fastapi uvicorn"
+      }
+    },
+    {
+      "id": "frontend.react",
+      "name": "React",
+      "category": "frontend",
+      "detect": "node",
+      "verify": ["node --version"],
+      "install": {
+        "windows": "npm create vite@latest envforge-react-smoke -- --template react-ts",
+        "macos": "npm create vite@latest envforge-react-smoke -- --template react-ts",
+        "linux": "npm create vite@latest envforge-react-smoke -- --template react-ts"
+      }
+    },
+    {
+      "id": "frontend.vite",
+      "name": "Vite",
+      "category": "frontend",
+      "detect": "node",
+      "verify": ["node --version"],
+      "install": {
+        "windows": "npm --version",
+        "macos": "npm --version",
+        "linux": "npm --version"
+      }
+    },
+    {
+      "id": "ai.pytorch",
+      "name": "PyTorch",
+      "category": "ai",
+      "detect": "python",
+      "verify": ["python -c \"import torch; print(torch.__version__)\""],
+      "install": {
+        "windows": "python -m pip install torch --index-url https://download.pytorch.org/whl/cpu",
+        "macos": "python3 -m pip install torch",
+        "linux": "python3 -m pip install torch --index-url https://download.pytorch.org/whl/cpu"
+      }
+    },
+    {
+      "id": "ai.transformers",
+      "name": "Transformers",
+      "category": "ai",
+      "detect": "python",
+      "verify": ["python -c \"import transformers; print(transformers.__version__)\""],
+      "install": {
+        "windows": "python -m pip install transformers datasets accelerate",
+        "macos": "python3 -m pip install transformers datasets accelerate",
+        "linux": "python3 -m pip install transformers datasets accelerate"
+      }
+    },
+    {
+      "id": "ai.langchain",
+      "name": "LangChain",
+      "category": "ai",
+      "detect": "python",
+      "verify": ["python -c \"import langchain; print(langchain.__version__)\""],
+      "install": {
+        "windows": "python -m pip install langchain",
+        "macos": "python3 -m pip install langchain",
+        "linux": "python3 -m pip install langchain"
+      }
+    },
+    {
+      "id": "ai.llamaindex",
+      "name": "LlamaIndex",
+      "category": "ai",
+      "detect": "python",
+      "verify": ["python -c \"import llama_index; print('llama-index ok')\""],
+      "install": {
+        "windows": "python -m pip install llama-index",
+        "macos": "python3 -m pip install llama-index",
+        "linux": "python3 -m pip install llama-index"
+      }
+    },
+    {
+      "id": "notebook.jupyter",
+      "name": "Jupyter",
+      "category": "ai",
+      "detect": "jupyter",
+      "verify": ["jupyter --version"],
+      "install": {
+        "windows": "python -m pip install jupyterlab",
+        "macos": "python3 -m pip install jupyterlab",
+        "linux": "python3 -m pip install jupyterlab"
+      }
+    }
+  ],
+  "stacks": [
+    {
+      "id": "language.python",
+      "name": "Python",
+      "description": "Python runtime and package tooling.",
+      "recipeIds": ["python"]
+    },
+    {
+      "id": "language.rust",
+      "name": "Rust",
+      "description": "Rust compiler, cargo and formatting tools.",
+      "recipeIds": ["rust"]
+    },
+    {
+      "id": "language.java",
+      "name": "Java Backend Base",
+      "description": "JDK for JVM backend development.",
+      "recipeIds": ["java"]
+    },
+    {
+      "id": "language.cpp",
+      "name": "C/C++ Native",
+      "description": "Compiler, build system and debugger baseline.",
+      "recipeIds": ["cpp"]
+    },
+    {
+      "id": "frontend.react",
+      "name": "React",
+      "description": "React development baseline.",
+      "recipeIds": ["node", "pnpm", "frontend.react"]
+    },
+    {
+      "id": "frontend.vite",
+      "name": "Vite",
+      "description": "Vite powered frontend tooling.",
+      "recipeIds": ["node", "frontend.vite"]
+    },
+    {
+      "id": "backend.fastapi",
+      "name": "FastAPI",
+      "description": "Python FastAPI backend stack.",
+      "recipeIds": ["python", "backend.fastapi"]
+    },
+    {
+      "id": "ai.pytorch",
+      "name": "PyTorch CPU",
+      "description": "PyTorch CPU development environment.",
+      "recipeIds": ["python", "ai.pytorch"]
+    },
+    {
+      "id": "ai.transformers",
+      "name": "Transformers",
+      "description": "Hugging Face Transformers tooling.",
+      "recipeIds": ["python", "ai.transformers"]
+    },
+    {
+      "id": "ai.langchain",
+      "name": "LangChain",
+      "description": "LLM application development with LangChain.",
+      "recipeIds": ["python", "ai.langchain"]
+    },
+    {
+      "id": "ai.llamaindex",
+      "name": "LlamaIndex",
+      "description": "RAG application development with LlamaIndex.",
+      "recipeIds": ["python", "ai.llamaindex"]
+    },
+    {
+      "id": "notebook.jupyter",
+      "name": "Jupyter",
+      "description": "Notebook and lab environment.",
+      "recipeIds": ["python", "notebook.jupyter"]
+    },
+    {
+      "id": "testing.web",
+      "name": "Web Testing",
+      "description": "Playwright browser testing baseline.",
+      "recipeIds": ["node", "testing.playwright"]
+    },
+    {
+      "id": "testing.python",
+      "name": "Python Testing",
+      "description": "pytest for Python projects.",
+      "recipeIds": ["python", "testing.pytest"]
+    },
+    {
+      "id": "operations.kubernetes",
+      "name": "Kubernetes Ops",
+      "description": "kubectl and Helm for Kubernetes operations.",
+      "recipeIds": ["kubernetes.kubectl", "helm"]
+    },
+    {
+      "id": "operations.infra",
+      "name": "Infrastructure Ops",
+      "description": "Terraform and Ansible for infrastructure automation.",
+      "recipeIds": ["terraform", "ansible"]
+    },
+    {
+      "id": "template.ai-python-workstation",
+      "name": "AI Python Workstation",
+      "description": "Python, Jupyter, PyTorch, Transformers, LangChain and LlamaIndex.",
+      "recipeIds": ["git", "python", "notebook.jupyter", "ai.pytorch", "ai.transformers", "ai.langchain", "ai.llamaindex"]
+    },
+    {
+      "id": "template.fullstack-web",
+      "name": "Fullstack Web",
+      "description": "Git, Node.js, pnpm, React, Vite and FastAPI.",
+      "recipeIds": ["git", "node", "pnpm", "frontend.react", "frontend.vite", "python", "backend.fastapi"]
+    }
+  ]
+}
