@@ -1,31 +1,26 @@
-# Source
+# 源码目录
 
-此目录预留给 EnvForge 源码。项目采用“共享核心 + CLI + 桌面端”的结构。
+`src/` 保存 PowerShell MVP 的工程化入口和共享目录。Go 后端代码位于仓库根目录下的 `internal/` 和 `cmd/`。
 
-建议初始模块：
+## 当前结构
 
 ```text
 src/
-├── cmd/
-│   └── envforge.ps1
-├── core/
-│   └── EnvForgeCore.psm1
-├── catalog/
-│   └── catalog.json
-├── desktop/
-│   ├── app/
-│   └── bindings/
-└── frontend/
-    ├── src/
-    └── package.json
+|-- agent/
+|   `-- EasySetupAgent.ps1
+|-- catalog/
+|   `-- catalog.json
+|-- cmd/
+|   `-- envforge.ps1
+`-- core/
+    `-- EnvForgeCore.psm1
 ```
 
-规划说明：
+## 说明
 
-- `core/` 是唯一业务核心，CLI 和 GUI 都必须调用它。
-- `cmd/envforge.ps1` 放当前工程化 CLI 入口。
-- `catalog/` 放语言、框架、AI 栈和模板目录。
-- `desktop/` 放 Wails 桌面应用壳和 Go 绑定。
-- `frontend/` 放轻量前端界面，建议使用 TypeScript + Svelte 或 Solid。
+- `core/` 是 PowerShell MVP 的核心规划模块。
+- `cmd/envforge.ps1` 是 PowerShell CLI 工程化入口。
+- `agent/` 是 PowerShell 本地 Agent 原型。
+- `catalog/catalog.json` 是 CLI、Agent 和 Go 后端共享的执行目录。
 
-当前阶段先用 PowerShell 标准能力实现可运行核心，保证没有 Go/Node/Python 的新机器也能测试方案。后续再把 `core/` 的接口迁移到 Go module，并让 Wails 桌面端调用同一套能力。
+后续迁移方向是让 Go 的 `internal/catalog`、`internal/agent` 和 Wails 桌面应用逐步替代 PowerShell MVP，但在迁移完成前保留 PowerShell 入口，保证原型可运行。

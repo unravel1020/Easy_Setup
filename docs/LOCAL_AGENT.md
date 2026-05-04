@@ -1,44 +1,44 @@
-# Local Agent Design
+# 本地 Agent 设计
 
-The Local Agent is the bridge between the static Easy_Setup UI and real environment installation on a user's machine.
+本地 Agent 是静态 Easy_Setup 页面与真实本机安装能力之间的桥接层。
 
-## Goals
+## 目标
 
-- Keep the public GitHub Pages app static, fast and cheap to host.
-- Require explicit local opt-in before any command can execute.
-- Open a visible PowerShell window for real installation work.
-- Store generated job scripts and logs for review.
-- Let the website keep working without the Agent by copying commands.
+- 保持 GitHub Pages 应用静态、快速、低成本。
+- 任何命令执行前都要求用户本机显式授权。
+- 真实安装时打开可见 PowerShell 窗口。
+- 写入 job 脚本和日志，方便审阅与排错。
+- Agent 不在线时，网页仍可复制安装命令。
 
-## Current MVP
+## 当前 MVP
 
-Start dry-run mode:
+启动 PowerShell Agent 预览模式：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-agent.ps1
 ```
 
-Start execution mode:
+启动 PowerShell Agent 执行模式：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-agent.ps1 -AllowExecute
 ```
 
-Start the Go Agent prototype:
+启动 Go Agent 原型：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1 -AllowExecute
 ```
 
-The Agent listens on:
+监听地址：
 
 ```text
 http://127.0.0.1:17771
 http://127.0.0.1:17772
 ```
 
-`17771` is the PowerShell Agent. `17772` is the Go Agent prototype.
+`17771` 是 PowerShell Agent；`17772` 是 Go Agent 原型。
 
 ## API
 
@@ -49,32 +49,31 @@ POST /plan
 POST /execute
 ```
 
-`POST /execute` requires `-AllowExecute`. Otherwise it returns a safe refusal plus the generated plan.
+`POST /execute` 必须启用执行参数。PowerShell Agent 使用 `-AllowExecute`，Go Agent 使用 `-allow-execute`。否则接口会返回安全拒绝。
 
-## Catalog Source
+## 目录来源
 
-The Agent reads the shared catalog from:
+Agent 读取共享目录：
 
 ```text
 src/catalog/catalog.json
 ```
 
-It resolves selected UI stack IDs against `stacks[].id`, expands their `recipeIds`, and reads platform install commands from `recipes[].install.windows` for the current MVP.
+它会用 UI 传入的 stack ID 匹配 `stacks[].id`，展开 `recipeIds`，并读取 `recipes[].install.windows` 作为当前 Windows MVP 的安装命令。
 
-## Security Notes
+## 安全说明
 
-- The listener binds only to `127.0.0.1`.
-- CORS is intentionally narrow enough for local prototype use.
-- Execution is disabled unless the user passes `-AllowExecute`.
-- Jobs are written to `.easy-setup/logs/` before execution.
-- The MVP opens a visible PowerShell window so the user can inspect and interrupt commands.
+- 监听地址只绑定 `127.0.0.1`。
+- CORS 仅用于本地原型与静态页面联调。
+- 未显式启用执行模式时，`/execute` 不会运行命令。
+- job 脚本和日志写入 `.easy-setup/logs/`。
+- MVP 使用可见 PowerShell 窗口，让用户可以检查和中断命令。
 
-## Engineering Path
+## 工程路线
 
-1. Keep the PowerShell Agent as the MVP execution bridge while the Go Agent matures.
-2. Use `cmd/easysetup-agent` as the new Go HTTP backend for `/health`, `/catalog` and `/plan`.
-3. Port job logging, visible execution windows and explicit confirmation into the Go Agent.
-4. Add recipe signatures and allowlist validation.
-5. Add job state, progress streaming, cancellation and retry.
-6. Add package-manager adapters for winget, choco, scoop, brew, apt, dnf and pacman.
-7. Add a content configuration backend so catalog updates can be pulled without changing UI code.
+1. 保留 PowerShell Agent 作为 MVP 执行桥。
+2. 使用 `cmd/easysetup-agent` 承载 Go HTTP 后端。
+3. 在 Go Agent 中完善 job 状态查询、进度、取消和重试。
+4. 增加 recipe 签名和允许列表校验。
+5. 增加 `winget`、`choco`、`scoop`、`brew`、`apt`、`dnf`、`pacman` 适配器。
+6. 增加内容配置后端，让目录更新不依赖 UI 代码修改。

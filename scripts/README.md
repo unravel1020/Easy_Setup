@@ -1,28 +1,37 @@
-# Scripts
+# 脚本目录
 
-此目录用于维护开发和发布辅助脚本，例如格式化、打包、生成 schema、构建多平台二进制。
+本目录存放开发、测试、启动和发布辅助脚本。脚本只服务工程流程，不承载核心业务逻辑。
 
-原则：
+## 常用命令
 
-- 不把核心逻辑写在脚本里。
-- 脚本只服务开发流程。
-- 生产能力应进入 CLI 核心或 recipe。
-
-当前 MVP 入口位于 `mvp/envforge.ps1`，用于在没有 Go/Node/Python 的机器上先跑通检测、目录、计划、验证和静态 GUI 原型。
-
-## 测试
-
-统一测试入口：
+运行完整测试：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1
 ```
 
-测试会覆盖：
+运行 Go 后端测试：
 
-- 环境目录结构。
-- 本机检测输出。
-- AI 和全栈示例计划生成。
-- 验证命令输出结构。
-- 静态 GUI 文件完整性。
-- `mvp/envforge.ps1` 兼容入口和 `src/cmd/envforge.ps1` 工程化入口。
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/go-test.ps1
+```
+
+启动 PowerShell Agent：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-agent.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-agent.ps1 -AllowExecute
+```
+
+启动 Go Agent：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1 -AllowExecute
+```
+
+## 维护原则
+
+- 不把核心规划、执行和验证逻辑写进脚本。
+- 可复用能力应进入 Go 核心、PowerShell core 或 recipe。
+- 脚本可以负责设置本地环境变量、调用测试、启动 Agent 和生成发布产物。
