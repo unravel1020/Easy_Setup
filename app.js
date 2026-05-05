@@ -25,6 +25,8 @@
     jobCompletedAt: "Completed",
     viewLog: "View Log",
     hideLog: "Hide Log",
+    cancelJob: "Cancel",
+    cancelConfirm: "Request cancellation for this job?",
     emptyLog: "Log is empty.",
     emptyPlan: "Select a stack to generate an install plan.",
     itemCount: "items",
@@ -87,6 +89,8 @@
     jobCompletedAt: "完成时间",
     viewLog: "查看日志",
     hideLog: "收起日志",
+    cancelJob: "取消",
+    cancelConfirm: "是否请求取消这个任务？",
     emptyLog: "日志为空。",
     emptyPlan: "选择一个环境栈后生成安装计划。",
     itemCount: "项",
@@ -678,8 +682,13 @@ function statusClass(status) {
   const value = String(status || "").toLowerCase();
   if (["completed"].includes(value)) return "success";
   if (["failed", "launch-failed"].includes(value)) return "danger";
+  if (["canceled", "cancel-requested"].includes(value)) return "warning";
   if (["running", "launched", "created"].includes(value)) return "active";
   return "neutral";
+}
+
+function canCancelJob(status) {
+  return ["created", "launched", "running"].includes(String(status || "").toLowerCase());
 }
 
 function formatDateTime(value) {
@@ -725,6 +734,11 @@ function renderJobs() {
       <button class="inline-action job-log-toggle" type="button" data-job-log="${job.id}">
         ${expanded ? t().hideLog : t().viewLog}
       </button>
+      ${canCancelJob(job.status) ? `
+        <button class="inline-action cancel-job" type="button" data-job-cancel="${job.id}">
+          ${t().cancelJob}
+        </button>
+      ` : ""}
       ${expanded ? `<pre class="job-log">${escapeHtml(log || t().emptyLog)}</pre>` : ""}
     </div>
   `;
@@ -732,6 +746,9 @@ function renderJobs() {
 
   document.querySelectorAll("[data-job-log]").forEach((button) => {
     button.addEventListener("click", () => toggleJobLog(button.dataset.jobLog));
+  });
+  document.querySelectorAll("[data-job-cancel]").forEach((button) => {
+    button.addEventListener("click", () => cancelJob(button.dataset.jobCancel, button));
   });
 }
 
@@ -770,6 +787,28 @@ async function toggleJobLog(jobId) {
   }
   state.expandedLogs.add(jobId);
   renderJobs();
+}
+
+async function cancelJob(jobId, button) {
+  if (!jobId || !state.agent.online) return;
+  if (!window.confirm(t().cancelConfirm || "Request cancellation for this job?")) return;
+  const previousText = button ? button.textContent : "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "...";
+  }
+  try {
+    const response = await fetch(`${state.agent.url}/jobs/${jobId}/cancel`, { method: "POST" });
+    if (!response.ok) throw new Error("Cancel failed");
+    await refreshJobs();
+  } catch {
+    showToast("Cancel failed");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = previousText || t().cancelJob;
+    }
+  }
 }
 
 async function executeViaAgent(itemIds, button) {
