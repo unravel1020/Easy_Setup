@@ -73,6 +73,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1 -
 
 启用执行模式后，页面点击 `执行安装` 或单个卡片的 `安装` 按钮，会把所选环境栈发送给本地 Agent。Agent 会在 `.easy-setup/logs/` 下写入 job 脚本、日志和状态记录，并打开可见 PowerShell 窗口执行。Web UI 会轮询执行历史，展示 `running`、`completed`、`failed` 等状态、退出码和日志预览。
 
+计划预览会对每条命令做基础风险分级，标出包管理器安装、语言生态包安装、配置修改、远程脚本执行、提权和破坏性文件操作等信号。当前是启发式审阅提示，不替代后续的 recipe 签名和允许列表校验。
+
 ## CLI
 
 PowerShell MVP CLI 默认只规划和验证，不会修改系统：
@@ -163,7 +165,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1
 
 - 用 Go 完整替代 PowerShell MVP 核心。
 - 增加包管理器适配器和更细的执行进度事件。
-- 增加 recipe 签名、允许列表和更细的风险确认。
+- 增加 recipe 签名、允许列表和执行前风险确认。
 - 用 Wails 构建轻量跨平台桌面应用。
 - 扩展更多语言、框架、AI 工具和企业镜像源。
 - 支持团队模板、离线包缓存和诊断包导出。

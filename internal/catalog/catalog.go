@@ -42,12 +42,19 @@ type Action struct {
 	Category string   `json:"category"`
 	Command  string   `json:"command"`
 	Verify   []string `json:"verify"`
+	Risk     Risk     `json:"risk"`
 }
 
 type Plan struct {
 	Platform string   `json:"platform"`
 	ItemIDs  []string `json:"itemIds"`
 	Actions  []Action `json:"actions"`
+}
+
+type Risk struct {
+	Level   string   `json:"level"`
+	Summary string   `json:"summary"`
+	Reasons []string `json:"reasons"`
 }
 
 func Load(path string) (*Catalog, error) {
@@ -109,6 +116,7 @@ func (c *Catalog) Plan(platform string, itemIDs []string) (*Plan, error) {
 				Category: recipe.Category,
 				Command:  command,
 				Verify:   recipe.Verify,
+				Risk:     AssessCommandRisk(command),
 			})
 		}
 	}
@@ -118,4 +126,82 @@ func (c *Catalog) Plan(platform string, itemIDs []string) (*Plan, error) {
 		ItemIDs:  append([]string(nil), itemIDs...),
 		Actions:  actions,
 	}, nil
+}
+
+func AssessCommandRisk(command string) Risk {
+	normalized := string(bytes.ToLower([]byte(command)))
+	reasons := []string{}
+	level := "low"
+
+	if containsAny(normalized, []string{"irm ", "iwr ", "invoke-webrequest", "invoke-restmethod", "curl ", "wget "}) &&
+		containsAny(normalized, []string{"| iex", "invoke-expression", "bash", "sh"}) {
+		level = "high"
+		reasons = append(reasons, "downloads and executes remote script")
+	}
+	if containsAny(normalized, []string{"set-executionpolicy", "new-itemproperty", "set-itemproperty", "[environment]::setenvironmentvariable"}) {
+		level = maxRisk(level, "medium")
+		reasons = append(reasons, "changes system or user configuration")
+	}
+	if containsAny(normalized, []string{"winget install", "brew install", "apt install", "dnf install", "pacman -s", "choco install", "scoop install"}) {
+		reasons = append(reasons, "installs packages through a package manager")
+	}
+	if containsAny(normalized, []string{"pip install", "npm install", "pnpm add", "cargo install", "go install"}) {
+		level = maxRisk(level, "medium")
+		reasons = append(reasons, "installs language ecosystem packages")
+	}
+	if containsAny(normalized, []string{"sudo ", "runas", "start-process powershell -verb runas"}) {
+		level = maxRisk(level, "high")
+		reasons = append(reasons, "may require elevated privileges")
+	}
+	if containsAny(normalized, []string{"rm -rf", "remove-item", "del /f", "format "}) {
+		level = maxRisk(level, "high")
+		reasons = append(reasons, "contains destructive file operation")
+	}
+	if len(reasons) == 0 {
+		reasons = append(reasons, "runs a local command")
+	}
+
+	return Risk{
+		Level:   level,
+		Summary: riskSummary(level),
+		Reasons: reasons,
+	}
+}
+
+func containsAny(value string, needles []string) bool {
+	for _, needle := range needles {
+		if bytes.Contains([]byte(value), []byte(needle)) {
+			return true
+		}
+	}
+	return false
+}
+
+func maxRisk(current string, candidate string) string {
+	if riskRank(candidate) > riskRank(current) {
+		return candidate
+	}
+	return current
+}
+
+func riskRank(level string) int {
+	switch level {
+	case "high":
+		return 3
+	case "medium":
+		return 2
+	default:
+		return 1
+	}
+}
+
+func riskSummary(level string) string {
+	switch level {
+	case "high":
+		return "Review carefully before running"
+	case "medium":
+		return "Review package and configuration changes"
+	default:
+		return "Low risk command"
+	}
 }

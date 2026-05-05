@@ -14,6 +14,16 @@
     actions: "actions",
     checks: "checks",
     actionsTitle: "Actions",
+    riskLow: "Low",
+    riskMedium: "Medium",
+    riskHigh: "High",
+    riskLocal: "Runs a local command",
+    riskPackageManager: "Installs packages through a package manager",
+    riskLanguagePackage: "Installs language ecosystem packages",
+    riskConfig: "Changes system or user configuration",
+    riskRemoteScript: "Downloads and executes remote script",
+    riskElevated: "May require elevated privileges",
+    riskDestructive: "Contains destructive file operation",
     environmentTitle: "Environment",
     cliPreviewTitle: "CLI Preview",
     jobsTitle: "Jobs",
@@ -79,6 +89,16 @@
     actions: "操作",
     checks: "验证",
     actionsTitle: "操作",
+    riskLow: "低",
+    riskMedium: "中",
+    riskHigh: "高",
+    riskLocal: "执行本地命令",
+    riskPackageManager: "通过包管理器安装软件包",
+    riskLanguagePackage: "安装语言生态包",
+    riskConfig: "修改系统或用户配置",
+    riskRemoteScript: "下载并执行远程脚本",
+    riskElevated: "可能需要提升权限",
+    riskDestructive: "包含破坏性文件操作",
     environmentTitle: "环境变量",
     cliPreviewTitle: "CLI 预览",
     jobsTitle: "执行历史",
@@ -703,6 +723,56 @@ function canRetryJob(status) {
   return ["failed", "canceled", "launch-failed"].includes(String(status || "").toLowerCase());
 }
 
+function includesAny(value, needles) {
+  return needles.some((needle) => value.includes(needle));
+}
+
+function riskForCommand(command) {
+  const value = String(command || "").toLowerCase();
+  const reasons = [];
+  let level = "low";
+  const promote = (candidate) => {
+    const rank = { low: 1, medium: 2, high: 3 };
+    if (rank[candidate] > rank[level]) level = candidate;
+  };
+
+  if (includesAny(value, ["irm ", "iwr ", "invoke-webrequest", "invoke-restmethod", "curl ", "wget "]) &&
+      includesAny(value, ["| iex", "invoke-expression", "bash", "sh"])) {
+    level = "high";
+    reasons.push(t().riskRemoteScript);
+  }
+  if (includesAny(value, ["set-executionpolicy", "new-itemproperty", "set-itemproperty", "[environment]::setenvironmentvariable"])) {
+    promote("medium");
+    reasons.push(t().riskConfig);
+  }
+  if (includesAny(value, ["winget install", "brew install", "apt install", "dnf install", "pacman -s", "choco install", "scoop install"])) {
+    reasons.push(t().riskPackageManager);
+  }
+  if (includesAny(value, ["pip install", "npm install", "pnpm add", "cargo install", "go install"])) {
+    promote("medium");
+    reasons.push(t().riskLanguagePackage);
+  }
+  if (includesAny(value, ["sudo ", "runas", "start-process powershell -verb runas"])) {
+    promote("high");
+    reasons.push(t().riskElevated);
+  }
+  if (includesAny(value, ["rm -rf", "remove-item", "del /f", "format "])) {
+    promote("high");
+    reasons.push(t().riskDestructive);
+  }
+  if (!reasons.length) {
+    reasons.push(t().riskLocal);
+  }
+
+  return { level, reasons };
+}
+
+function riskLabel(level) {
+  if (level === "high") return t().riskHigh;
+  if (level === "medium") return t().riskMedium;
+  return t().riskLow;
+}
+
 function updateJobSnapshot(job) {
   if (!job || !job.id) return;
   const index = state.jobs.findIndex((current) => current.id === job.id);
@@ -930,7 +1000,17 @@ function renderPlan() {
   byId("verifyCount").textContent = verify.length;
 
   byId("actions").innerHTML = recipes.length
-    ? recipes.map((recipeItem) => `<li><strong>${recipeItem.name}</strong><code>${recipeItem.command}</code></li>`).join("")
+    ? recipes.map((recipeItem) => {
+      const risk = riskForCommand(recipeItem.command);
+      return `
+        <li>
+          <strong>${recipeItem.name}</strong>
+          <span class="risk risk-${risk.level}">${riskLabel(risk.level)}</span>
+          <code>${recipeItem.command}</code>
+          <small>${risk.reasons.join(" · ")}</small>
+        </li>
+      `;
+    }).join("")
     : `<li>${t().emptyPlan}</li>`;
 
   byId("env").innerHTML = `

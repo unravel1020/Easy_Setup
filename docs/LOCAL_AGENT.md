@@ -63,6 +63,8 @@ POST /jobs/{id}/retry
 
 `POST /execute` 必须启用执行参数。PowerShell Agent 使用 `-AllowExecute`，Go Agent 使用 `-allow-execute`。否则接口会返回安全拒绝。
 
+`POST /plan` 返回的每个 action 都包含 `risk` 字段。当前风险分级根据命令文本启发式生成，用于提示包管理器安装、语言生态包安装、配置修改、远程脚本执行、提权和破坏性文件操作等信号。
+
 Go Agent 会在执行时创建 job 记录：
 
 ```text
