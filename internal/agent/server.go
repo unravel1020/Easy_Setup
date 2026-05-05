@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -20,7 +21,8 @@ type Server struct {
 }
 
 type planRequest struct {
-	ItemIDs []string `json:"itemIds"`
+	ItemIDs         []string `json:"itemIds"`
+	ConfirmHighRisk bool     `json:"confirmHighRisk"`
 }
 
 func New(catalogData *catalog.Catalog, platform string, allowExecute bool) *Server {
@@ -74,8 +76,8 @@ func (s *Server) handlePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var request planRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	request, err := decodePlanRequest(r)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -101,8 +103,8 @@ func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var request planRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	request, err := decodePlanRequest(r)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -110,6 +112,14 @@ func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 	plan, err := s.Catalog.Plan(s.Platform, request.ItemIDs)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if blocked := highRiskActions(plan); len(blocked) > 0 && !request.ConfirmHighRisk {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"ok":      false,
+			"reason":  "high risk confirmation required",
+			"actions": blocked,
+		})
 		return
 	}
 	job, err := CreateJob(plan, s.JobDir, s.Launch)
@@ -318,6 +328,11 @@ func (s *Server) handleJobRetry(w http.ResponseWriter, r *http.Request, id strin
 		})
 		return
 	}
+	request, err := decodePlanRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
 	previous, err := ReadJob(s.JobDir, id)
 	if err != nil {
 		if errors.Is(err, ErrJobNotFound) {
@@ -334,6 +349,14 @@ func (s *Server) handleJobRetry(w http.ResponseWriter, r *http.Request, id strin
 	plan, err := s.Catalog.Plan(s.Platform, previous.ItemIDs)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if blocked := highRiskActions(plan); len(blocked) > 0 && !request.ConfirmHighRisk {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"ok":      false,
+			"reason":  "high risk confirmation required",
+			"actions": blocked,
+		})
 		return
 	}
 	job, err := CreateJob(plan, s.JobDir, s.Launch)
@@ -369,6 +392,31 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
+}
+
+func decodePlanRequest(r *http.Request) (planRequest, error) {
+	var request planRequest
+	if r.Body == nil {
+		return request, nil
+	}
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if errors.Is(err, io.EOF) {
+		return request, nil
+	}
+	return request, err
+}
+
+func highRiskActions(plan *catalog.Plan) []catalog.Action {
+	if plan == nil {
+		return nil
+	}
+	actions := []catalog.Action{}
+	for _, action := range plan.Actions {
+		if action.Risk.Level == "high" {
+			actions = append(actions, action)
+		}
+	}
+	return actions
 }
 
 func writeError(w http.ResponseWriter, status int, reason string) {

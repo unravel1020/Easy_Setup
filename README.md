@@ -75,6 +75,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1 -
 
 计划预览会对每条命令做基础风险分级，标出包管理器安装、语言生态包安装、配置修改、远程脚本执行、提权和破坏性文件操作等信号。当前是启发式审阅提示，不替代后续的 recipe 签名和允许列表校验。
 
+当计划中包含高风险命令时，Go Agent 会要求请求体显式包含 `confirmHighRisk: true`，否则 `/execute` 和 `/jobs/{id}/retry` 会拒绝执行。Web UI 会在这类场景中显示二次确认。
+
 ## CLI
 
 PowerShell MVP CLI 默认只规划和验证，不会修改系统：

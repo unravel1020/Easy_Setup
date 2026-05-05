@@ -24,6 +24,7 @@
     riskRemoteScript: "Downloads and executes remote script",
     riskElevated: "May require elevated privileges",
     riskDestructive: "Contains destructive file operation",
+    highRiskConfirm: "High risk commands are selected. Continue only if you trust the source and reviewed the commands.",
     environmentTitle: "Environment",
     cliPreviewTitle: "CLI Preview",
     jobsTitle: "Jobs",
@@ -99,6 +100,7 @@
     riskRemoteScript: "下载并执行远程脚本",
     riskElevated: "可能需要提升权限",
     riskDestructive: "包含破坏性文件操作",
+    highRiskConfirm: "已选择高风险命令。请确认你信任来源，并已审阅命令内容，是否继续？",
     environmentTitle: "环境变量",
     cliPreviewTitle: "CLI 预览",
     jobsTitle: "执行历史",
@@ -773,6 +775,21 @@ function riskLabel(level) {
   return t().riskLow;
 }
 
+function hasHighRiskRecipes(recipes) {
+  return recipes.some((recipeItem) => riskForCommand(recipeItem.command).level === "high");
+}
+
+function confirmExecutionRisk(recipes) {
+  if (!window.confirm(t().executeConfirm || "Execute selected install commands in a local PowerShell window?")) {
+    return null;
+  }
+  const confirmHighRisk = hasHighRiskRecipes(recipes);
+  if (confirmHighRisk && !window.confirm(t().highRiskConfirm || "High risk commands are selected. Continue?")) {
+    return null;
+  }
+  return { confirmHighRisk };
+}
+
 function updateJobSnapshot(job) {
   if (!job || !job.id) return;
   const index = state.jobs.findIndex((current) => current.id === job.id);
@@ -949,13 +966,23 @@ async function cancelJob(jobId, button) {
 
 async function retryJob(jobId, button) {
   if (!jobId || !state.agent.online || !state.agent.allowExecute) return;
+  const job = state.jobs.find((current) => current.id === jobId);
+  const recipes = getRecipesForItems(job && Array.isArray(job.itemIds) ? job.itemIds : []);
+  const riskDecision = hasHighRiskRecipes(recipes)
+    ? confirmExecutionRisk(recipes)
+    : { confirmHighRisk: false };
+  if (!riskDecision) return;
   const previousText = button ? button.textContent : "";
   if (button) {
     button.disabled = true;
     button.textContent = "...";
   }
   try {
-    const response = await fetch(`${state.agent.url}/jobs/${jobId}/retry`, { method: "POST" });
+    const response = await fetch(`${state.agent.url}/jobs/${jobId}/retry`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(riskDecision)
+    });
     if (!response.ok) throw new Error("Retry failed");
     await refreshJobs();
   } catch {
@@ -970,25 +997,25 @@ async function retryJob(jobId, button) {
 
 async function executeViaAgent(itemIds, button) {
   if (!itemIds.length) return;
+  const recipes = getRecipesForItems(itemIds);
   if (!state.agent.online || !state.agent.allowExecute) {
-    copyText(buildInstallCommand(getRecipesForItems(itemIds)), button);
+    copyText(buildInstallCommand(recipes), button);
     return;
   }
-  if (!window.confirm(t().executeConfirm || "Execute selected install commands in a local PowerShell window?")) {
-    return;
-  }
+  const riskDecision = confirmExecutionRisk(recipes);
+  if (!riskDecision) return;
   try {
     const response = await fetch(`${state.agent.url}/execute`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemIds })
+      body: JSON.stringify({ itemIds, confirmHighRisk: riskDecision.confirmHighRisk })
     });
     if (!response.ok) throw new Error("Agent execution failed");
     await response.json().catch(() => null);
     await refreshJobs();
     markCopied(button);
   } catch {
-    copyText(buildInstallCommand(getRecipesForItems(itemIds)), button);
+    copyText(buildInstallCommand(recipes), button);
   }
 }
 

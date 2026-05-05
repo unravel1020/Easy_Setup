@@ -65,6 +65,8 @@ POST /jobs/{id}/retry
 
 `POST /plan` 返回的每个 action 都包含 `risk` 字段。当前风险分级根据命令文本启发式生成，用于提示包管理器安装、语言生态包安装、配置修改、远程脚本执行、提权和破坏性文件操作等信号。
 
+如果计划中存在 `risk.level = high` 的 action，`POST /execute` 和 `POST /jobs/{id}/retry` 必须在请求体中传入 `confirmHighRisk: true`。缺少确认时，Go Agent 会返回 `409 Conflict`，并在响应中带回被拦截的高风险 actions。
+
 Go Agent 会在执行时创建 job 记录：
 
 ```text

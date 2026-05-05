@@ -92,6 +92,37 @@ func TestExecuteCreatesJob(t *testing.T) {
 	}
 }
 
+func TestExecuteRequiresHighRiskConfirmation(t *testing.T) {
+	catalogData := highRiskCatalog()
+	server := New(catalogData, "windows", true)
+	server.JobDir = t.TempDir()
+	server.Launch = func(scriptPath string) error { return nil }
+
+	request := httptest.NewRequest(http.MethodPost, "/execute", bytes.NewBufferString(`{"itemIds":["danger.remote"]}`))
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusConflict)
+	}
+	var blocked struct {
+		Reason  string           `json:"reason"`
+		Actions []catalog.Action `json:"actions"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &blocked); err != nil {
+		t.Fatal(err)
+	}
+	if blocked.Reason != "high risk confirmation required" || len(blocked.Actions) != 1 {
+		t.Fatalf("blocked = %#v", blocked)
+	}
+
+	confirmed := httptest.NewRequest(http.MethodPost, "/execute", bytes.NewBufferString(`{"itemIds":["danger.remote"],"confirmHighRisk":true}`))
+	confirmedResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(confirmedResponse, confirmed)
+	if confirmedResponse.Code != http.StatusOK {
+		t.Fatalf("confirmed status = %d, body = %s", confirmedResponse.Code, confirmedResponse.Body.String())
+	}
+}
+
 func TestJobsEndpoints(t *testing.T) {
 	catalogData, err := catalog.Load("../../src/catalog/catalog.json")
 	if err != nil {
@@ -333,6 +364,37 @@ func TestJobRetryEndpoint(t *testing.T) {
 	}
 }
 
+func TestJobRetryRequiresHighRiskConfirmation(t *testing.T) {
+	catalogData := highRiskCatalog()
+	jobDir := t.TempDir()
+	job := Job{
+		ID:      "retrydanger",
+		Status:  "failed",
+		JobPath: filepath.Join(jobDir, "retrydanger.json"),
+		ItemIDs: []string{"danger.remote"},
+	}
+	if err := writeJob(job.JobPath, &job); err != nil {
+		t.Fatal(err)
+	}
+	server := New(catalogData, "windows", true)
+	server.JobDir = jobDir
+	server.Launch = func(scriptPath string) error { return nil }
+
+	request := httptest.NewRequest(http.MethodPost, "/jobs/retrydanger/retry", nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusConflict)
+	}
+
+	confirmed := httptest.NewRequest(http.MethodPost, "/jobs/retrydanger/retry", bytes.NewBufferString(`{"confirmHighRisk":true}`))
+	confirmedResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(confirmedResponse, confirmed)
+	if confirmedResponse.Code != http.StatusOK {
+		t.Fatalf("confirmed status = %d, body = %s", confirmedResponse.Code, confirmedResponse.Body.String())
+	}
+}
+
 func TestJobRetryRequiresExecutePermission(t *testing.T) {
 	catalogData, err := catalog.Load("../../src/catalog/catalog.json")
 	if err != nil {
@@ -372,5 +434,21 @@ func TestJobNotFound(t *testing.T) {
 	server.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusNotFound)
+	}
+}
+
+func highRiskCatalog() *catalog.Catalog {
+	return &catalog.Catalog{
+		Version: "test",
+		Recipes: []catalog.Recipe{
+			{
+				ID:       "danger.remote",
+				Name:     "Remote Script",
+				Category: "testing",
+				Install: map[string]string{
+					"windows": "irm https://example.com/install.ps1 | iex",
+				},
+			},
+		},
 	}
 }
