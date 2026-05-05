@@ -25,6 +25,10 @@
     riskElevated: "May require elevated privileges",
     riskDestructive: "Contains destructive file operation",
     highRiskConfirm: "High risk commands are selected. Continue only if you trust the source and reviewed the commands.",
+    trustTrusted: "Trusted",
+    trustUntrusted: "Untrusted",
+    trustBuiltin: "Bundled with Easy_Setup",
+    untrustedConfirm: "Untrusted recipes are selected. Continue only if you trust their source.",
     environmentTitle: "Environment",
     cliPreviewTitle: "CLI Preview",
     jobsTitle: "Jobs",
@@ -101,6 +105,10 @@
     riskElevated: "可能需要提升权限",
     riskDestructive: "包含破坏性文件操作",
     highRiskConfirm: "已选择高风险命令。请确认你信任来源，并已审阅命令内容，是否继续？",
+    trustTrusted: "可信",
+    trustUntrusted: "未信任",
+    trustBuiltin: "Easy_Setup 内置目录",
+    untrustedConfirm: "已选择未信任的 recipe。请确认你信任它们的来源，是否继续？",
     environmentTitle: "环境变量",
     cliPreviewTitle: "CLI 预览",
     jobsTitle: "执行历史",
@@ -406,8 +414,8 @@ function item(id, category, recipes, text) {
   return { id, category, recipes, text };
 }
 
-function recipe(name, command, verify) {
-  return { name, command, verify };
+function recipe(name, command, verify, trust) {
+  return { name, command, verify, trust };
 }
 
 const state = {
@@ -775,8 +783,28 @@ function riskLabel(level) {
   return t().riskLow;
 }
 
+function trustForRecipe(recipeItem) {
+  const trust = recipeItem.trust || {};
+  if (!trust.source && !trust.reason) {
+    return {
+      trusted: true,
+      source: "builtin catalog",
+      reason: t().trustBuiltin
+    };
+  }
+  return {
+    trusted: Boolean(trust.trusted),
+    source: trust.source || "custom catalog",
+    reason: trust.reason || (trust.trusted ? t().trustTrusted : t().trustUntrusted)
+  };
+}
+
 function hasHighRiskRecipes(recipes) {
   return recipes.some((recipeItem) => riskForCommand(recipeItem.command).level === "high");
+}
+
+function hasUntrustedRecipes(recipes) {
+  return recipes.some((recipeItem) => !trustForRecipe(recipeItem).trusted);
 }
 
 function confirmExecutionRisk(recipes) {
@@ -787,7 +815,11 @@ function confirmExecutionRisk(recipes) {
   if (confirmHighRisk && !window.confirm(t().highRiskConfirm || "High risk commands are selected. Continue?")) {
     return null;
   }
-  return { confirmHighRisk };
+  const confirmUntrusted = hasUntrustedRecipes(recipes);
+  if (confirmUntrusted && !window.confirm(t().untrustedConfirm || "Untrusted recipes are selected. Continue?")) {
+    return null;
+  }
+  return { confirmHighRisk, confirmUntrusted };
 }
 
 function updateJobSnapshot(job) {
@@ -970,7 +1002,9 @@ async function retryJob(jobId, button) {
   const recipes = getRecipesForItems(job && Array.isArray(job.itemIds) ? job.itemIds : []);
   const riskDecision = hasHighRiskRecipes(recipes)
     ? confirmExecutionRisk(recipes)
-    : { confirmHighRisk: false };
+    : hasUntrustedRecipes(recipes)
+      ? confirmExecutionRisk(recipes)
+      : { confirmHighRisk: false, confirmUntrusted: false };
   if (!riskDecision) return;
   const previousText = button ? button.textContent : "";
   if (button) {
@@ -1008,7 +1042,11 @@ async function executeViaAgent(itemIds, button) {
     const response = await fetch(`${state.agent.url}/execute`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemIds, confirmHighRisk: riskDecision.confirmHighRisk })
+      body: JSON.stringify({
+        itemIds,
+        confirmHighRisk: riskDecision.confirmHighRisk,
+        confirmUntrusted: riskDecision.confirmUntrusted
+      })
     });
     if (!response.ok) throw new Error("Agent execution failed");
     await response.json().catch(() => null);
@@ -1029,12 +1067,14 @@ function renderPlan() {
   byId("actions").innerHTML = recipes.length
     ? recipes.map((recipeItem) => {
       const risk = riskForCommand(recipeItem.command);
+      const trust = trustForRecipe(recipeItem);
       return `
         <li>
           <strong>${recipeItem.name}</strong>
           <span class="risk risk-${risk.level}">${riskLabel(risk.level)}</span>
+          <span class="trust ${trust.trusted ? "trust-ok" : "trust-warn"}">${trust.trusted ? t().trustTrusted : t().trustUntrusted}</span>
           <code>${recipeItem.command}</code>
-          <small>${risk.reasons.join(" · ")}</small>
+          <small>${risk.reasons.join(" · ")} · ${trust.source}: ${trust.reason}</small>
         </li>
       `;
     }).join("")
