@@ -394,6 +394,7 @@ const state = {
   selected: new Set(),
   jobs: [],
   jobLogs: {},
+  jobStreams: {},
   expandedLogs: new Set(),
   theme: localStorage.getItem("envforge-theme") || "light",
   language: localStorage.getItem("envforge-language") || "en",
@@ -479,6 +480,7 @@ function renderAgentStatus() {
 async function refreshJobs() {
   if (!state.agent.online) {
     state.jobs = [];
+    closeJobStreams();
     renderJobs();
     return;
   }
@@ -500,6 +502,9 @@ async function refreshAgentStatus() {
       const response = await fetch(`${url}/health`, { cache: "no-store" });
       if (!response.ok) throw new Error("Agent unavailable");
       const data = await response.json();
+      if (state.agent.url !== url) {
+        closeJobStreams();
+      }
       state.agent.url = url;
       state.agent.online = Boolean(data.ok);
       state.agent.allowExecute = Boolean(data.allowExecute);
@@ -511,6 +516,7 @@ async function refreshAgentStatus() {
       state.agent.allowExecute = false;
     }
   }
+  closeJobStreams();
   renderAgentStatus();
   refreshJobs();
 }
@@ -697,6 +703,16 @@ function canRetryJob(status) {
   return ["failed", "canceled", "launch-failed"].includes(String(status || "").toLowerCase());
 }
 
+function updateJobSnapshot(job) {
+  if (!job || !job.id) return;
+  const index = state.jobs.findIndex((current) => current.id === job.id);
+  if (index >= 0) {
+    state.jobs[index] = job;
+  } else {
+    state.jobs.unshift(job);
+  }
+}
+
 function formatDateTime(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -766,8 +782,42 @@ function renderJobs() {
   });
 }
 
+function startJobStream(jobId) {
+  if (!jobId || !state.agent.online || state.jobStreams[jobId] || typeof EventSource === "undefined") return;
+  const source = new EventSource(`${state.agent.url}/jobs/${jobId}/events`);
+  state.jobStreams[jobId] = source;
+  source.addEventListener("job", (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      updateJobSnapshot(data.job);
+      state.jobLogs[jobId] = data.log || "";
+      if (data.job && ["completed", "failed", "canceled", "launch-failed"].includes(String(data.job.status || "").toLowerCase())) {
+        stopJobStream(jobId);
+      }
+      renderJobs();
+    } catch {
+      stopJobStream(jobId);
+    }
+  });
+  source.addEventListener("error", () => {
+    stopJobStream(jobId);
+  });
+}
+
+function stopJobStream(jobId) {
+  const source = state.jobStreams[jobId];
+  if (!source) return;
+  source.close();
+  delete state.jobStreams[jobId];
+}
+
+function closeJobStreams() {
+  Object.keys(state.jobStreams).forEach(stopJobStream);
+}
+
 async function refreshExpandedJobLogs() {
   if (!state.agent.online || !state.expandedLogs.size) return;
+  [...state.expandedLogs].forEach(startJobStream);
   await Promise.all([...state.expandedLogs].map(async (jobId) => {
     try {
       const response = await fetch(`${state.agent.url}/jobs/${jobId}/log`, { cache: "no-store" });
@@ -785,6 +835,7 @@ async function toggleJobLog(jobId) {
   if (!jobId) return;
   if (state.expandedLogs.has(jobId)) {
     state.expandedLogs.delete(jobId);
+    stopJobStream(jobId);
     renderJobs();
     return;
   }
@@ -800,6 +851,7 @@ async function toggleJobLog(jobId) {
     }
   }
   state.expandedLogs.add(jobId);
+  startJobStream(jobId);
   renderJobs();
 }
 
