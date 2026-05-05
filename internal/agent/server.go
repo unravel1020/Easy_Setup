@@ -141,13 +141,25 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
 	id := strings.TrimPrefix(r.URL.Path, "/jobs/")
 	if strings.HasSuffix(id, "/log") {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
 		s.handleJobLog(w, r, strings.TrimSuffix(id, "/log"))
+		return
+	}
+	if strings.HasSuffix(id, "/cancel") {
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		s.handleJobCancel(w, r, strings.TrimSuffix(id, "/cancel"))
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 	if id == "" || strings.Contains(id, "/") {
@@ -183,6 +195,26 @@ func (s *Server) handleJobLog(w http.ResponseWriter, r *http.Request, id string)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id":  id,
 		"log": logText,
+	})
+}
+
+func (s *Server) handleJobCancel(w http.ResponseWriter, r *http.Request, id string) {
+	if id == "" || strings.Contains(id, "/") {
+		writeError(w, http.StatusNotFound, "job not found")
+		return
+	}
+	job, err := CancelJob(s.JobDir, id)
+	if err != nil {
+		if errors.Is(err, ErrJobNotFound) {
+			writeError(w, http.StatusNotFound, "job not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":  true,
+		"job": job,
 	})
 }
 

@@ -191,6 +191,50 @@ func TestJobLogEndpoint(t *testing.T) {
 	}
 }
 
+func TestJobCancelEndpoint(t *testing.T) {
+	catalogData, err := catalog.Load("../../src/catalog/catalog.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobDir := t.TempDir()
+	server := New(catalogData, "windows", true)
+	server.JobDir = jobDir
+	server.Launch = func(scriptPath string) error { return nil }
+
+	executeBody := bytes.NewBufferString(`{"itemIds":["template.fullstack-web"]}`)
+	executeRequest := httptest.NewRequest(http.MethodPost, "/execute", executeBody)
+	executeResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(executeResponse, executeRequest)
+	if executeResponse.Code != http.StatusOK {
+		t.Fatalf("execute status = %d", executeResponse.Code)
+	}
+	var executeResult struct {
+		Job Job `json:"job"`
+	}
+	if err := json.Unmarshal(executeResponse.Body.Bytes(), &executeResult); err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/jobs/"+executeResult.Job.ID+"/cancel", nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d", response.Code)
+	}
+	var result struct {
+		Job Job `json:"job"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Job.Status != "cancel-requested" {
+		t.Fatalf("status = %q", result.Job.Status)
+	}
+	if _, err := os.Stat(executeResult.Job.CancelPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestJobNotFound(t *testing.T) {
 	catalogData, err := catalog.Load("../../src/catalog/catalog.json")
 	if err != nil {

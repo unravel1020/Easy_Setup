@@ -98,7 +98,7 @@ go run ./cmd/easysetup plan template.fullstack-web
 go run ./cmd/easysetup-agent -port 17772
 ```
 
-Go Agent 当前支持 `/health`、`/catalog`、`/plan`、`/execute`、`/jobs`、`/jobs/{id}` 和 `/jobs/{id}/log`。
+Go Agent 当前支持 `/health`、`/catalog`、`/plan`、`/execute`、`/jobs`、`/jobs/{id}`、`/jobs/{id}/log` 和 `/jobs/{id}/cancel`。
 
 ## 内容配置
 
@@ -162,7 +162,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1
 ## 路线图
 
 - 用 Go 完整替代 PowerShell MVP 核心。
-- 为 Go Agent 增加进度流、取消和重试。
+- 为 Go Agent 增加进度流和重试。
 - 增加 recipe 签名、允许列表和更细的风险确认。
 - 用 Wails 构建轻量跨平台桌面应用。
 - 扩展更多语言、框架、AI 工具和企业镜像源。

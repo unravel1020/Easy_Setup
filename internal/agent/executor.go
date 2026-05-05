@@ -26,6 +26,7 @@ type Job struct {
 	JobPath    string           `json:"jobPath"`
 	ScriptPath string           `json:"scriptPath"`
 	LogPath    string           `json:"logPath"`
+	CancelPath string           `json:"cancelPath"`
 	CreatedAt  time.Time        `json:"createdAt"`
 	CompletedAt *time.Time      `json:"completedAt,omitempty"`
 	ExitCode   *int             `json:"exitCode,omitempty"`
@@ -57,6 +58,7 @@ func CreateJob(plan *catalog.Plan, jobDir string, launch Launcher) (*Job, error)
 	scriptPath := filepath.Join(jobDir, id+".ps1")
 	logPath := filepath.Join(jobDir, id+".log")
 	jobPath := filepath.Join(jobDir, id+".json")
+	cancelPath := filepath.Join(jobDir, id+".cancel")
 
 	job := &Job{
 		ID:         id,
@@ -64,6 +66,7 @@ func CreateJob(plan *catalog.Plan, jobDir string, launch Launcher) (*Job, error)
 		JobPath:    jobPath,
 		ScriptPath: scriptPath,
 		LogPath:    logPath,
+		CancelPath: cancelPath,
 		CreatedAt:  time.Now().UTC(),
 		ItemIDs:    append([]string(nil), plan.ItemIDs...),
 		Actions:    append([]catalog.Action(nil), plan.Actions...),
@@ -88,13 +91,15 @@ func renderPowerShellJob(job *Job) string {
 	lines := []string{
 		`$ErrorActionPreference = "Continue"`,
 		fmt.Sprintf(`$EasySetupJobPath = "%s"`, escapePowerShellString(job.JobPath)),
+		fmt.Sprintf(`$EasySetupCancelPath = "%s"`, escapePowerShellString(job.CancelPath)),
 		`$script:EasySetupExitCode = 0`,
+		`$script:EasySetupCanceled = $false`,
 		`function Set-EasySetupJobStatus {`,
 		`  param([string]$Status, [int]$ExitCode = 0)`,
 		`  try {`,
 		`    $job = Get-Content -LiteralPath $EasySetupJobPath -Raw | ConvertFrom-Json`,
 		`    $job.status = $Status`,
-		`    if ($Status -eq "completed" -or $Status -eq "failed") {`,
+		`    if ($Status -eq "completed" -or $Status -eq "failed" -or $Status -eq "canceled") {`,
 		`      $job | Add-Member -NotePropertyName completedAt -NotePropertyValue ((Get-Date).ToUniversalTime().ToString("o")) -Force`,
 		`      $job | Add-Member -NotePropertyName exitCode -NotePropertyValue $ExitCode -Force`,
 		`    }`,
@@ -108,32 +113,48 @@ func renderPowerShellJob(job *Job) string {
 		`  if (-not $Succeeded) { $script:EasySetupExitCode = 1 }`,
 		`  if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) { $script:EasySetupExitCode = $LASTEXITCODE }`,
 		`}`,
+		`function Test-EasySetupCanceled {`,
+		`  if (Test-Path -LiteralPath $EasySetupCancelPath) {`,
+		`    Write-Host "Easy_Setup cancellation requested."`,
+		`    $script:EasySetupCanceled = $true`,
+		`    $script:EasySetupExitCode = 130`,
+		`    return $true`,
+		`  }`,
+		`  return $false`,
+		`}`,
 		`Set-EasySetupJobStatus "running"`,
 		fmt.Sprintf(`Start-Transcript -Path "%s" -Force`, escapePowerShellString(job.LogPath)),
 		fmt.Sprintf(`Write-Host "Easy_Setup job %s"`, job.ID),
 	}
 	for _, action := range job.Actions {
 		lines = append(lines,
+			`if (-not (Test-EasySetupCanceled)) {`,
 			fmt.Sprintf(`Write-Host ""`),
 			fmt.Sprintf(`Write-Host "Running: %s"`, escapePowerShellString(action.ID)),
 			`$global:LASTEXITCODE = 0`,
 			action.Command,
 			`$easySetupLastSucceeded = $?`,
 			`Update-EasySetupExitCode $easySetupLastSucceeded`,
+			`}`,
 		)
 		for _, verify := range action.Verify {
 			lines = append(lines,
+				`if (-not (Test-EasySetupCanceled)) {`,
 				fmt.Sprintf(`Write-Host "Verify: %s"`, escapePowerShellString(verify)),
 				`$global:LASTEXITCODE = 0`,
 				verify,
 				`$easySetupLastSucceeded = $?`,
 				`Update-EasySetupExitCode $easySetupLastSucceeded`,
+				`}`,
 			)
 		}
 	}
 	lines = append(lines,
+		`Test-EasySetupCanceled | Out-Null`,
 		`Stop-Transcript`,
-		`if ($script:EasySetupExitCode -eq 0) {`,
+		`if ($script:EasySetupCanceled) {`,
+		`  Set-EasySetupJobStatus "canceled" 130`,
+		`} elseif ($script:EasySetupExitCode -eq 0) {`,
 		`  Set-EasySetupJobStatus "completed" 0`,
 		`} else {`,
 		`  Set-EasySetupJobStatus "failed" $script:EasySetupExitCode`,
@@ -216,6 +237,41 @@ func ReadJobLog(jobDir string, id string, maxBytes int64) (string, error) {
 		data = data[int64(len(data))-maxBytes:]
 	}
 	return string(data), nil
+}
+
+func CancelJob(jobDir string, id string) (*Job, error) {
+	job, err := ReadJob(jobDir, id)
+	if err != nil {
+		return nil, err
+	}
+	if isTerminalStatus(job.Status) {
+		return job, nil
+	}
+	cancelPath := job.CancelPath
+	if cancelPath == "" {
+		cancelPath = filepath.Join(defaultJobDir(jobDir), id+".cancel")
+		job.CancelPath = cancelPath
+	}
+	if err := os.WriteFile(cancelPath, []byte(time.Now().UTC().Format(time.RFC3339Nano)), 0o644); err != nil {
+		return nil, err
+	}
+	job.Status = "cancel-requested"
+	if job.JobPath == "" {
+		job.JobPath = filepath.Join(defaultJobDir(jobDir), id+".json")
+	}
+	if err := writeJob(job.JobPath, job); err != nil {
+		return nil, err
+	}
+	return job, nil
+}
+
+func isTerminalStatus(status string) bool {
+	switch strings.ToLower(status) {
+	case "completed", "failed", "canceled", "launch-failed":
+		return true
+	default:
+		return false
+	}
 }
 
 func sortJobs(jobs []Job) {

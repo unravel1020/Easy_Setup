@@ -56,6 +56,7 @@ POST /execute
 GET  /jobs
 GET  /jobs/{id}
 GET  /jobs/{id}/log
+POST /jobs/{id}/cancel
 ```
 
 `POST /execute` 必须启用执行参数。PowerShell Agent 使用 `-AllowExecute`，Go Agent 使用 `-allow-execute`。否则接口会返回安全拒绝。
@@ -66,6 +67,7 @@ Go Agent 会在执行时创建 job 记录：
 .easy-setup/logs/<job-id>.ps1
 .easy-setup/logs/<job-id>.log
 .easy-setup/logs/<job-id>.json
+.easy-setup/logs/<job-id>.cancel
 ```
 
 `GET /jobs` 返回当前 job 目录中的历史记录，按创建时间倒序排列。`GET /jobs/{id}` 返回单个 job 的 JSON 路径、脚本路径、日志路径、状态、退出码、完成时间、环境选择和展开后的 actions。
@@ -75,11 +77,15 @@ Go Agent 会在执行时创建 job 记录：
 - `created`：记录已创建，尚未拉起脚本。
 - `launched`：脚本窗口已拉起，等待脚本回写运行状态。
 - `running`：脚本已经开始执行。
+- `cancel-requested`：用户已请求取消，脚本会在下一个步骤边界停止。
 - `completed`：脚本执行完成，退出码为 0。
 - `failed`：脚本执行完成，但安装或验证命令返回非 0 退出码。
+- `canceled`：脚本响应取消请求后停止，退出码为 130。
 - `launch-failed`：Agent 未能拉起本地脚本窗口。
 
 `GET /jobs/{id}/log` 返回该 job 日志文件的尾部内容。当前上限为 32 KB，后续会演进为实时日志流。
+
+`POST /jobs/{id}/cancel` 会写入取消标记并把 job 状态改为 `cancel-requested`。当前取消是协作式取消：正在执行的命令不会被强制杀死，但脚本会在每个安装或验证步骤之间检查取消标记，并尽快以 `canceled` 状态结束。
 
 ## 目录来源
 
@@ -103,7 +109,7 @@ src/catalog/catalog.json
 
 1. 保留 PowerShell Agent 作为 MVP 执行桥。
 2. 使用 `cmd/easysetup-agent` 承载 Go HTTP 后端。
-3. 在 Go Agent 中完善进度流、取消和重试。
+3. 在 Go Agent 中完善进度流和重试。
 4. 让 UI 展示 `/jobs` 和 `/jobs/{id}` 返回的执行历史。
 5. 增加 recipe 签名和允许列表校验。
 6. 增加 `winget`、`choco`、`scoop`、`brew`、`apt`、`dnf`、`pacman` 适配器。
