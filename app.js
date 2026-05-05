@@ -27,6 +27,7 @@
     hideLog: "Hide Log",
     cancelJob: "Cancel",
     cancelConfirm: "Request cancellation for this job?",
+    retryJob: "Retry",
     emptyLog: "Log is empty.",
     emptyPlan: "Select a stack to generate an install plan.",
     itemCount: "items",
@@ -91,6 +92,7 @@
     hideLog: "收起日志",
     cancelJob: "取消",
     cancelConfirm: "是否请求取消这个任务？",
+    retryJob: "重试",
     emptyLog: "日志为空。",
     emptyPlan: "选择一个环境栈后生成安装计划。",
     itemCount: "项",
@@ -691,6 +693,10 @@ function canCancelJob(status) {
   return ["created", "launched", "running"].includes(String(status || "").toLowerCase());
 }
 
+function canRetryJob(status) {
+  return ["failed", "canceled", "launch-failed"].includes(String(status || "").toLowerCase());
+}
+
 function formatDateTime(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -739,6 +745,11 @@ function renderJobs() {
           ${t().cancelJob}
         </button>
       ` : ""}
+      ${canRetryJob(job.status) ? `
+        <button class="inline-action retry-job" type="button" data-job-retry="${job.id}">
+          ${t().retryJob}
+        </button>
+      ` : ""}
       ${expanded ? `<pre class="job-log">${escapeHtml(log || t().emptyLog)}</pre>` : ""}
     </div>
   `;
@@ -749,6 +760,9 @@ function renderJobs() {
   });
   document.querySelectorAll("[data-job-cancel]").forEach((button) => {
     button.addEventListener("click", () => cancelJob(button.dataset.jobCancel, button));
+  });
+  document.querySelectorAll("[data-job-retry]").forEach((button) => {
+    button.addEventListener("click", () => retryJob(button.dataset.jobRetry, button));
   });
 }
 
@@ -807,6 +821,27 @@ async function cancelJob(jobId, button) {
     if (button) {
       button.disabled = false;
       button.textContent = previousText || t().cancelJob;
+    }
+  }
+}
+
+async function retryJob(jobId, button) {
+  if (!jobId || !state.agent.online || !state.agent.allowExecute) return;
+  const previousText = button ? button.textContent : "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "...";
+  }
+  try {
+    const response = await fetch(`${state.agent.url}/jobs/${jobId}/retry`, { method: "POST" });
+    if (!response.ok) throw new Error("Retry failed");
+    await refreshJobs();
+  } catch {
+    showToast("Retry failed");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = previousText || t().retryJob;
     }
   }
 }
