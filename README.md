@@ -77,6 +77,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-go-agent.ps1 -
 
 当计划中包含高风险命令时，Go Agent 会要求请求体显式包含 `confirmHighRisk: true`，否则 `/execute` 和 `/jobs/{id}/retry` 会拒绝执行。Web UI 会在这类场景中显示二次确认。
 
+计划中的 action 也会携带 recipe 信任信息。内置目录默认可信；外部目录可以用 `trust.trusted=false` 标记未进入允许列表的 recipe。Go Agent 会要求这类请求显式包含 `confirmUntrusted: true`。
+
 ## CLI
 
 PowerShell MVP CLI 默认只规划和验证，不会修改系统：

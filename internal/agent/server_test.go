@@ -123,6 +123,37 @@ func TestExecuteRequiresHighRiskConfirmation(t *testing.T) {
 	}
 }
 
+func TestExecuteRequiresUntrustedConfirmation(t *testing.T) {
+	catalogData := untrustedCatalog()
+	server := New(catalogData, "windows", true)
+	server.JobDir = t.TempDir()
+	server.Launch = func(scriptPath string) error { return nil }
+
+	request := httptest.NewRequest(http.MethodPost, "/execute", bytes.NewBufferString(`{"itemIds":["external.tool"]}`))
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusConflict)
+	}
+	var blocked struct {
+		Reason  string           `json:"reason"`
+		Actions []catalog.Action `json:"actions"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &blocked); err != nil {
+		t.Fatal(err)
+	}
+	if blocked.Reason != "untrusted recipe confirmation required" || len(blocked.Actions) != 1 {
+		t.Fatalf("blocked = %#v", blocked)
+	}
+
+	confirmed := httptest.NewRequest(http.MethodPost, "/execute", bytes.NewBufferString(`{"itemIds":["external.tool"],"confirmUntrusted":true}`))
+	confirmedResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(confirmedResponse, confirmed)
+	if confirmedResponse.Code != http.StatusOK {
+		t.Fatalf("confirmed status = %d, body = %s", confirmedResponse.Code, confirmedResponse.Body.String())
+	}
+}
+
 func TestJobsEndpoints(t *testing.T) {
 	catalogData, err := catalog.Load("../../src/catalog/catalog.json")
 	if err != nil {
@@ -395,6 +426,37 @@ func TestJobRetryRequiresHighRiskConfirmation(t *testing.T) {
 	}
 }
 
+func TestJobRetryRequiresUntrustedConfirmation(t *testing.T) {
+	catalogData := untrustedCatalog()
+	jobDir := t.TempDir()
+	job := Job{
+		ID:      "retryexternal",
+		Status:  "failed",
+		JobPath: filepath.Join(jobDir, "retryexternal.json"),
+		ItemIDs: []string{"external.tool"},
+	}
+	if err := writeJob(job.JobPath, &job); err != nil {
+		t.Fatal(err)
+	}
+	server := New(catalogData, "windows", true)
+	server.JobDir = jobDir
+	server.Launch = func(scriptPath string) error { return nil }
+
+	request := httptest.NewRequest(http.MethodPost, "/jobs/retryexternal/retry", nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusConflict)
+	}
+
+	confirmed := httptest.NewRequest(http.MethodPost, "/jobs/retryexternal/retry", bytes.NewBufferString(`{"confirmUntrusted":true}`))
+	confirmedResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(confirmedResponse, confirmed)
+	if confirmedResponse.Code != http.StatusOK {
+		t.Fatalf("confirmed status = %d, body = %s", confirmedResponse.Code, confirmedResponse.Body.String())
+	}
+}
+
 func TestJobRetryRequiresExecutePermission(t *testing.T) {
 	catalogData, err := catalog.Load("../../src/catalog/catalog.json")
 	if err != nil {
@@ -447,6 +509,26 @@ func highRiskCatalog() *catalog.Catalog {
 				Category: "testing",
 				Install: map[string]string{
 					"windows": "irm https://example.com/install.ps1 | iex",
+				},
+			},
+		},
+	}
+}
+
+func untrustedCatalog() *catalog.Catalog {
+	return &catalog.Catalog{
+		Version: "test",
+		Recipes: []catalog.Recipe{
+			{
+				ID:       "external.tool",
+				Name:     "External Tool",
+				Category: "testing",
+				Install: map[string]string{
+					"windows": "external-tool install",
+				},
+				Trust: catalog.Trust{
+					Trusted: false,
+					Source:  "external catalog",
 				},
 			},
 		},

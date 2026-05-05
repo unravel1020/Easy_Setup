@@ -21,8 +21,9 @@ type Server struct {
 }
 
 type planRequest struct {
-	ItemIDs         []string `json:"itemIds"`
-	ConfirmHighRisk bool     `json:"confirmHighRisk"`
+	ItemIDs          []string `json:"itemIds"`
+	ConfirmHighRisk  bool     `json:"confirmHighRisk"`
+	ConfirmUntrusted bool     `json:"confirmUntrusted"`
 }
 
 func New(catalogData *catalog.Catalog, platform string, allowExecute bool) *Server {
@@ -118,6 +119,14 @@ func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusConflict, map[string]any{
 			"ok":      false,
 			"reason":  "high risk confirmation required",
+			"actions": blocked,
+		})
+		return
+	}
+	if blocked := untrustedActions(plan); len(blocked) > 0 && !request.ConfirmUntrusted {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"ok":      false,
+			"reason":  "untrusted recipe confirmation required",
 			"actions": blocked,
 		})
 		return
@@ -359,6 +368,14 @@ func (s *Server) handleJobRetry(w http.ResponseWriter, r *http.Request, id strin
 		})
 		return
 	}
+	if blocked := untrustedActions(plan); len(blocked) > 0 && !request.ConfirmUntrusted {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"ok":      false,
+			"reason":  "untrusted recipe confirmation required",
+			"actions": blocked,
+		})
+		return
+	}
 	job, err := CreateJob(plan, s.JobDir, s.Launch)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
@@ -413,6 +430,19 @@ func highRiskActions(plan *catalog.Plan) []catalog.Action {
 	actions := []catalog.Action{}
 	for _, action := range plan.Actions {
 		if action.Risk.Level == "high" {
+			actions = append(actions, action)
+		}
+	}
+	return actions
+}
+
+func untrustedActions(plan *catalog.Plan) []catalog.Action {
+	if plan == nil {
+		return nil
+	}
+	actions := []catalog.Action{}
+	for _, action := range plan.Actions {
+		if !action.Trust.Trusted {
 			actions = append(actions, action)
 		}
 	}

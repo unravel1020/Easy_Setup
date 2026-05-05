@@ -27,6 +27,7 @@ type Recipe struct {
 	Detect   string            `json:"detect"`
 	Verify   []string          `json:"verify"`
 	Install  map[string]string `json:"install"`
+	Trust    Trust             `json:"trust,omitempty"`
 }
 
 type Stack struct {
@@ -43,6 +44,7 @@ type Action struct {
 	Command  string   `json:"command"`
 	Verify   []string `json:"verify"`
 	Risk     Risk     `json:"risk"`
+	Trust    Trust    `json:"trust"`
 }
 
 type Plan struct {
@@ -55,6 +57,12 @@ type Risk struct {
 	Level   string   `json:"level"`
 	Summary string   `json:"summary"`
 	Reasons []string `json:"reasons"`
+}
+
+type Trust struct {
+	Trusted bool   `json:"trusted"`
+	Source  string `json:"source"`
+	Reason  string `json:"reason"`
 }
 
 func Load(path string) (*Catalog, error) {
@@ -117,6 +125,7 @@ func (c *Catalog) Plan(platform string, itemIDs []string) (*Plan, error) {
 				Command:  command,
 				Verify:   recipe.Verify,
 				Risk:     AssessCommandRisk(command),
+				Trust:    normalizeTrust(recipe.Trust),
 			})
 		}
 	}
@@ -126,6 +135,27 @@ func (c *Catalog) Plan(platform string, itemIDs []string) (*Plan, error) {
 		ItemIDs:  append([]string(nil), itemIDs...),
 		Actions:  actions,
 	}, nil
+}
+
+func normalizeTrust(trust Trust) Trust {
+	if trust.Source == "" && trust.Reason == "" {
+		return Trust{
+			Trusted: true,
+			Source:  "builtin catalog",
+			Reason:  "Bundled with Easy_Setup",
+		}
+	}
+	if trust.Source == "" {
+		trust.Source = "custom catalog"
+	}
+	if trust.Reason == "" {
+		if trust.Trusted {
+			trust.Reason = "Trusted by catalog metadata"
+		} else {
+			trust.Reason = "Not in trusted allowlist"
+		}
+	}
+	return trust
 }
 
 func AssessCommandRisk(command string) Risk {

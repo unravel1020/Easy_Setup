@@ -67,6 +67,8 @@ POST /jobs/{id}/retry
 
 如果计划中存在 `risk.level = high` 的 action，`POST /execute` 和 `POST /jobs/{id}/retry` 必须在请求体中传入 `confirmHighRisk: true`。缺少确认时，Go Agent 会返回 `409 Conflict`，并在响应中带回被拦截的高风险 actions。
 
+每个 action 还包含 `trust` 字段。内置目录默认可信；外部目录可以通过 recipe 的 `trust` 元数据标记来源。如果计划中存在 `trust.trusted = false` 的 action，`POST /execute` 和 `POST /jobs/{id}/retry` 必须传入 `confirmUntrusted: true`，否则 Go Agent 会返回 `409 Conflict`。
+
 Go Agent 会在执行时创建 job 记录：
 
 ```text

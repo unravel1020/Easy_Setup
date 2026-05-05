@@ -42,6 +42,11 @@ mvp/web/catalog.web.json
   "category": "languages",
   "detect": "python",
   "verify": ["python --version"],
+  "trust": {
+    "trusted": true,
+    "source": "builtin catalog",
+    "reason": "Bundled with Easy_Setup"
+  },
   "install": {
     "windows": "winget install --id Python.Python.3.12 -e",
     "macos": "brew install python@3.12",
@@ -68,6 +73,7 @@ mvp/web/catalog.web.json
 - 已发布的 recipe ID 应保持稳定。
 - 平台安装命令写在 `install.windows`、`install.macos`、`install.linux` 下。
 - 命令必须可审计，避免默认执行破坏性操作。
+- 外部目录应显式声明 `trust`。未进入允许列表的 recipe 使用 `"trusted": false`，执行时需要用户额外确认。
 - 优先使用官方包管理器：`winget`、`brew`、`apt`，再考虑专用安装器。
 - 在 `verify` 中提供冒烟验证命令，便于安装后检查。
 

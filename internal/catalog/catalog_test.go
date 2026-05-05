@@ -35,12 +35,52 @@ func TestPlanExpandsStack(t *testing.T) {
 		if action.Risk.Level == "" {
 			t.Fatalf("action %s has empty risk level", action.ID)
 		}
+		if !action.Trust.Trusted {
+			t.Fatalf("action %s should be trusted by default", action.ID)
+		}
+		if action.Trust.Source == "" {
+			t.Fatalf("action %s has empty trust source", action.ID)
+		}
 	}
 
 	for _, id := range []string{"git", "node", "pnpm", "frontend.react", "frontend.vite", "python", "backend.fastapi"} {
 		if !ids[id] {
 			t.Fatalf("plan missing %s", id)
 		}
+	}
+}
+
+func TestPlanCarriesRecipeTrust(t *testing.T) {
+	catalog := &Catalog{
+		Version: "test",
+		Recipes: []Recipe{
+			{
+				ID:       "custom.tool",
+				Name:     "Custom Tool",
+				Category: "testing",
+				Install: map[string]string{
+					"windows": "custom-tool install",
+				},
+				Trust: Trust{
+					Trusted: false,
+					Source:  "external file",
+				},
+			},
+		},
+	}
+
+	plan, err := catalog.Plan("windows", []string{"custom.tool"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Actions) != 1 {
+		t.Fatalf("actions = %d", len(plan.Actions))
+	}
+	if plan.Actions[0].Trust.Trusted {
+		t.Fatalf("trust = %#v", plan.Actions[0].Trust)
+	}
+	if plan.Actions[0].Trust.Reason == "" {
+		t.Fatalf("trust reason is empty")
 	}
 }
 
