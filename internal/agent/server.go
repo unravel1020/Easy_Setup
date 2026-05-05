@@ -158,6 +158,14 @@ func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
 		s.handleJobCancel(w, r, strings.TrimSuffix(id, "/cancel"))
 		return
 	}
+	if strings.HasSuffix(id, "/retry") {
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		s.handleJobRetry(w, r, strings.TrimSuffix(id, "/retry"))
+		return
+	}
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
@@ -215,6 +223,52 @@ func (s *Server) handleJobCancel(w http.ResponseWriter, r *http.Request, id stri
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":  true,
 		"job": job,
+	})
+}
+
+func (s *Server) handleJobRetry(w http.ResponseWriter, r *http.Request, id string) {
+	if id == "" || strings.Contains(id, "/") {
+		writeError(w, http.StatusNotFound, "job not found")
+		return
+	}
+	if !s.AllowExecute {
+		writeJSON(w, http.StatusForbidden, map[string]any{
+			"ok":     false,
+			"reason": "Agent was not started with -allow-execute.",
+		})
+		return
+	}
+	previous, err := ReadJob(s.JobDir, id)
+	if err != nil {
+		if errors.Is(err, ErrJobNotFound) {
+			writeError(w, http.StatusNotFound, "job not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if len(previous.ItemIDs) == 0 {
+		writeError(w, http.StatusBadRequest, "job has no itemIds to retry")
+		return
+	}
+	plan, err := s.Catalog.Plan(s.Platform, previous.ItemIDs)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	job, err := CreateJob(plan, s.JobDir, s.Launch)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{
+			"ok":     false,
+			"reason": err.Error(),
+			"job":    job,
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":       true,
+		"previous": previous,
+		"job":      job,
 	})
 }
 

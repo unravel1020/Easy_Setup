@@ -235,6 +235,87 @@ func TestJobCancelEndpoint(t *testing.T) {
 	}
 }
 
+func TestJobRetryEndpoint(t *testing.T) {
+	catalogData, err := catalog.Load("../../src/catalog/catalog.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobDir := t.TempDir()
+	launchCount := 0
+	server := New(catalogData, "windows", true)
+	server.JobDir = jobDir
+	server.Launch = func(scriptPath string) error {
+		launchCount++
+		return nil
+	}
+
+	executeBody := bytes.NewBufferString(`{"itemIds":["template.fullstack-web"]}`)
+	executeRequest := httptest.NewRequest(http.MethodPost, "/execute", executeBody)
+	executeResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(executeResponse, executeRequest)
+	if executeResponse.Code != http.StatusOK {
+		t.Fatalf("execute status = %d", executeResponse.Code)
+	}
+	var executeResult struct {
+		Job Job `json:"job"`
+	}
+	if err := json.Unmarshal(executeResponse.Body.Bytes(), &executeResult); err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/jobs/"+executeResult.Job.ID+"/retry", nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d", response.Code)
+	}
+	var result struct {
+		Previous Job `json:"previous"`
+		Job      Job `json:"job"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Previous.ID != executeResult.Job.ID {
+		t.Fatalf("previous id = %q", result.Previous.ID)
+	}
+	if result.Job.ID == "" || result.Job.ID == executeResult.Job.ID {
+		t.Fatalf("retry job id = %q, previous = %q", result.Job.ID, executeResult.Job.ID)
+	}
+	if launchCount != 2 {
+		t.Fatalf("launch count = %d", launchCount)
+	}
+	if len(result.Job.ItemIDs) != len(executeResult.Job.ItemIDs) {
+		t.Fatalf("item ids = %#v", result.Job.ItemIDs)
+	}
+}
+
+func TestJobRetryRequiresExecutePermission(t *testing.T) {
+	catalogData, err := catalog.Load("../../src/catalog/catalog.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobDir := t.TempDir()
+	job := Job{
+		ID:      "retryjob",
+		Status:  "failed",
+		JobPath: filepath.Join(jobDir, "retryjob.json"),
+		ItemIDs: []string{"template.fullstack-web"},
+	}
+	if err := writeJob(job.JobPath, &job); err != nil {
+		t.Fatal(err)
+	}
+	server := New(catalogData, "windows", false)
+	server.JobDir = jobDir
+
+	request := httptest.NewRequest(http.MethodPost, "/jobs/retryjob/retry", nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+}
+
 func TestJobNotFound(t *testing.T) {
 	catalogData, err := catalog.Load("../../src/catalog/catalog.json")
 	if err != nil {

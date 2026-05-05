@@ -57,6 +57,7 @@ GET  /jobs
 GET  /jobs/{id}
 GET  /jobs/{id}/log
 POST /jobs/{id}/cancel
+POST /jobs/{id}/retry
 ```
 
 `POST /execute` 必须启用执行参数。PowerShell Agent 使用 `-AllowExecute`，Go Agent 使用 `-allow-execute`。否则接口会返回安全拒绝。
@@ -87,6 +88,8 @@ Go Agent 会在执行时创建 job 记录：
 
 `POST /jobs/{id}/cancel` 会写入取消标记并把 job 状态改为 `cancel-requested`。当前取消是协作式取消：正在执行的命令不会被强制杀死，但脚本会在每个安装或验证步骤之间检查取消标记，并尽快以 `canceled` 状态结束。
 
+`POST /jobs/{id}/retry` 会读取原 job 的 `itemIds`，重新生成计划并创建一个新的 job。重试不会覆盖原 job 的脚本和日志，因此失败记录可以继续保留用于排错。该接口和 `/execute` 一样，要求 Go Agent 使用 `-allow-execute` 启动。
+
 ## 目录来源
 
 Agent 读取共享目录：
@@ -109,7 +112,7 @@ src/catalog/catalog.json
 
 1. 保留 PowerShell Agent 作为 MVP 执行桥。
 2. 使用 `cmd/easysetup-agent` 承载 Go HTTP 后端。
-3. 在 Go Agent 中完善进度流和重试。
+3. 在 Go Agent 中完善进度流。
 4. 让 UI 展示 `/jobs` 和 `/jobs/{id}` 返回的执行历史。
 5. 增加 recipe 签名和允许列表校验。
 6. 增加 `winget`、`choco`、`scoop`、`brew`、`apt`、`dnf`、`pacman` 适配器。
