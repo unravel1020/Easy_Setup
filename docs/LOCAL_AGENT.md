@@ -56,6 +56,7 @@ POST /execute
 GET  /jobs
 GET  /jobs/{id}
 GET  /jobs/{id}/log
+GET  /jobs/{id}/events
 POST /jobs/{id}/cancel
 POST /jobs/{id}/retry
 ```
@@ -86,6 +87,8 @@ Go Agent 会在执行时创建 job 记录：
 
 `GET /jobs/{id}/log` 返回该 job 日志文件的尾部内容。当前上限为 32 KB，后续会演进为实时日志流。
 
+`GET /jobs/{id}/events` 是 Server-Sent Events 进度流，会持续推送当前 job 快照和日志尾部内容。当前事件名为 `job`，数据结构包含 `job` 和 `log`。任务进入 `completed`、`failed`、`canceled` 或 `launch-failed` 后，流会自动结束。UI 展开日志面板时会优先使用该接口，轮询仍作为兜底。
+
 `POST /jobs/{id}/cancel` 会写入取消标记并把 job 状态改为 `cancel-requested`。当前取消是协作式取消：正在执行的命令不会被强制杀死，但脚本会在每个安装或验证步骤之间检查取消标记，并尽快以 `canceled` 状态结束。
 
 `POST /jobs/{id}/retry` 会读取原 job 的 `itemIds`，重新生成计划并创建一个新的 job。重试不会覆盖原 job 的脚本和日志，因此失败记录可以继续保留用于排错。该接口和 `/execute` 一样，要求 Go Agent 使用 `-allow-execute` 启动。
@@ -112,8 +115,8 @@ src/catalog/catalog.json
 
 1. 保留 PowerShell Agent 作为 MVP 执行桥。
 2. 使用 `cmd/easysetup-agent` 承载 Go HTTP 后端。
-3. 在 Go Agent 中完善进度流。
-4. 让 UI 展示 `/jobs` 和 `/jobs/{id}` 返回的执行历史。
+3. 增加更细的步骤级进度事件。
+4. 让 UI 展示 `/jobs`、`/jobs/{id}` 和 `/jobs/{id}/events` 返回的执行历史。
 5. 增加 recipe 签名和允许列表校验。
 6. 增加 `winget`、`choco`、`scoop`、`brew`、`apt`、`dnf`、`pacman` 适配器。
 7. 增加内容配置后端，让目录更新不依赖 UI 代码修改。

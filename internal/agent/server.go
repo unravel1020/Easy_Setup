@@ -3,8 +3,10 @@ package agent
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/unravel1020/Easy_Setup/internal/catalog"
 )
@@ -150,6 +152,14 @@ func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
 		s.handleJobLog(w, r, strings.TrimSuffix(id, "/log"))
 		return
 	}
+	if strings.HasSuffix(id, "/events") {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		s.handleJobEvents(w, r, strings.TrimSuffix(id, "/events"))
+		return
+	}
 	if strings.HasSuffix(id, "/cancel") {
 		if r.Method != http.MethodPost {
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -204,6 +214,76 @@ func (s *Server) handleJobLog(w http.ResponseWriter, r *http.Request, id string)
 		"id":  id,
 		"log": logText,
 	})
+}
+
+func (s *Server) handleJobEvents(w http.ResponseWriter, r *http.Request, id string) {
+	if id == "" || strings.Contains(id, "/") {
+		writeError(w, http.StatusNotFound, "job not found")
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "streaming is not supported")
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	send := func() (bool, error) {
+		job, err := ReadJob(s.JobDir, id)
+		if err != nil {
+			return false, err
+		}
+		logText, err := ReadJobLog(s.JobDir, id, 32*1024)
+		if err != nil {
+			return false, err
+		}
+		payload := map[string]any{
+			"job": job,
+			"log": logText,
+		}
+		data, err := json.Marshal(payload)
+		if err != nil {
+			return false, err
+		}
+		if _, err := fmt.Fprintf(w, "event: job\ndata: %s\n\n", data); err != nil {
+			return false, err
+		}
+		flusher.Flush()
+		return isTerminalStatus(job.Status), nil
+	}
+
+	done, err := send()
+	if err != nil {
+		if errors.Is(err, ErrJobNotFound) {
+			writeSSEError(w, flusher, "job not found")
+			return
+		}
+		writeSSEError(w, flusher, err.Error())
+		return
+	}
+	if done || r.URL.Query().Get("once") == "1" {
+		return
+	}
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-ticker.C:
+			done, err := send()
+			if err != nil {
+				writeSSEError(w, flusher, err.Error())
+				return
+			}
+			if done {
+				return
+			}
+		}
+	}
 }
 
 func (s *Server) handleJobCancel(w http.ResponseWriter, r *http.Request, id string) {
@@ -296,4 +376,13 @@ func writeError(w http.ResponseWriter, status int, reason string) {
 		"ok":     false,
 		"reason": reason,
 	})
+}
+
+func writeSSEError(w http.ResponseWriter, flusher http.Flusher, reason string) {
+	data, _ := json.Marshal(map[string]any{
+		"ok":     false,
+		"reason": reason,
+	})
+	_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
+	flusher.Flush()
 }

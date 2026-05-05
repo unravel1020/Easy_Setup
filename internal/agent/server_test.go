@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/unravel1020/Easy_Setup/internal/catalog"
@@ -188,6 +189,48 @@ func TestJobLogEndpoint(t *testing.T) {
 	}
 	if result.Log != "hello log" {
 		t.Fatalf("log = %q", result.Log)
+	}
+}
+
+func TestJobEventsEndpoint(t *testing.T) {
+	catalogData, err := catalog.Load("../../src/catalog/catalog.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobDir := t.TempDir()
+	server := New(catalogData, "windows", true)
+	server.JobDir = jobDir
+	server.Launch = func(scriptPath string) error { return nil }
+
+	executeBody := bytes.NewBufferString(`{"itemIds":["template.fullstack-web"]}`)
+	executeRequest := httptest.NewRequest(http.MethodPost, "/execute", executeBody)
+	executeResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(executeResponse, executeRequest)
+	if executeResponse.Code != http.StatusOK {
+		t.Fatalf("execute status = %d", executeResponse.Code)
+	}
+	var executeResult struct {
+		Job Job `json:"job"`
+	}
+	if err := json.Unmarshal(executeResponse.Body.Bytes(), &executeResult); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(executeResult.Job.LogPath, []byte("hello stream"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/jobs/"+executeResult.Job.ID+"/events?once=1", nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d", response.Code)
+	}
+	if contentType := response.Header().Get("Content-Type"); !strings.Contains(contentType, "text/event-stream") {
+		t.Fatalf("content type = %q", contentType)
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, "event: job") || !strings.Contains(body, "hello stream") {
+		t.Fatalf("unexpected event body: %s", body)
 	}
 }
 
